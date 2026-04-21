@@ -28,12 +28,24 @@ class GitManager {
 
   async log() {
     try {
-      const log = await this.git.log(['--all']);
+      const log = await this.git.log({
+        '--all': null,
+        format: {
+          hash: '%H',
+          parents: '%P',
+          date: '%aI',
+          author: '%an',
+          refs: '%D',
+          message: '%s'
+        }
+      });
       return log.all.map(e => ({
         hash: e.hash,
+        parents: (e.parents || '').split(' ').filter(Boolean),
         date: e.date,
         message: e.message,
-        author: e.author_name
+        author: e.author,
+        refs: parseRefs(e.refs || '')
       }));
     } catch {
       return [];
@@ -152,6 +164,16 @@ class GitManager {
 
     return changes;
   }
+}
+
+function parseRefs(s) {
+  if (!s) return [];
+  return s.split(',').map(x => x.trim()).filter(Boolean).map(x => {
+    if (x.startsWith('HEAD -> ')) return { name: x.slice(8), head: true, type: 'branch' };
+    if (x === 'HEAD') return { name: 'HEAD', head: true, type: 'head' };
+    if (x.startsWith('tag: ')) return { name: x.slice(5), type: 'tag' };
+    return { name: x, type: 'branch' };
+  });
 }
 
 module.exports = GitManager;

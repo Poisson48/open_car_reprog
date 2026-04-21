@@ -34,6 +34,12 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
 
   ![branch switcher](docs/screenshots/branch-switcher.png)
 
+- **Graph des branches** dans l'historique — les commits sont dessinés en SVG avec une lane
+  colorée par branche, diagonales aux points de divergence, badges `HEAD → stage1` / `master`
+  inline dans le message :
+
+  ![git graph](docs/screenshots/git-graph.png)
+
 - **Diff map-level** — quand on clique un commit dans l'historique, le panneau ne montre plus
   des octets bruts mais la **liste des cartes A2L modifiées**, avec type, nombre de cellules
   changées, et un échantillon valeur avant → après :

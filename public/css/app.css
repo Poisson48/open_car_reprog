@@ -355,15 +355,43 @@ table.map-table td.modified input { color: var(--modified); }
 }
 
 .git-entry {
-  padding: 7px 12px;
+  display: flex;
+  align-items: stretch;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
+  min-height: 44px;
 }
 .git-entry:hover { background: var(--panel); }
 .git-entry.active { background: var(--selected); }
+.git-entry .git-gutter {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  padding-left: 4px;
+}
+.git-entry .git-gutter svg { display: block; }
+.git-entry .git-body {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 12px 7px 6px;
+  overflow: hidden;
+}
 .git-entry .git-msg { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .git-entry .git-meta { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
-.git-entry .git-hash { font-size: 10px; color: var(--accent); font-family: monospace; }
+.git-entry .git-hash { color: var(--accent); font-family: monospace; }
+
+.git-ref {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 5px;
+  margin-right: 4px;
+  border-radius: 2px;
+  font-weight: 600;
+  vertical-align: baseline;
+}
+.git-ref-head   { background: #3a2a1a; color: #ce9178; border: 1px solid #ce9178; }
+.git-ref-branch { background: #1a2a3a; color: #569cd6; border: 1px solid #569cd6; }
+.git-ref-tag    { background: #1a3a2a; color: #4ec9b0; border: 1px solid #4ec9b0; }
 
 .git-diff-view {
   flex-shrink: 0;

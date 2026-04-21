@@ -94,15 +94,31 @@ export class GitPanel {
       return;
     }
 
+    const laneInfo = computeLanes(this.entries);
+
     const frag = document.createDocumentFragment();
-    for (const entry of this.entries) {
+    for (let i = 0; i < this.entries.length; i++) {
+      const entry = this.entries[i];
+      const info = laneInfo[entry.hash];
+      const nextInfo = i + 1 < this.entries.length ? laneInfo[this.entries[i + 1].hash] : null;
+
       const div = document.createElement('div');
       div.className = 'git-entry' + (this.activeHash === entry.hash ? ' active' : '');
       const date = new Date(entry.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+
+      const refsHtml = (entry.refs || []).map(r => {
+        const cls = r.head ? 'git-ref-head' : r.type === 'tag' ? 'git-ref-tag' : 'git-ref-branch';
+        return `<span class="git-ref ${cls}">${r.head && r.type !== 'head' ? 'HEAD → ' : ''}${r.name}</span>`;
+      }).join('');
+
+      const gutter = renderGutter(info, nextInfo);
+
       div.innerHTML = `
-        <div class="git-msg">${entry.message}</div>
-        <div class="git-meta">${date}</div>
-        <div class="git-hash">${entry.hash.slice(0, 8)}</div>
+        <div class="git-gutter">${gutter}</div>
+        <div class="git-body">
+          <div class="git-msg">${refsHtml}${entry.message}</div>
+          <div class="git-meta">${date} · <span class="git-hash">${entry.hash.slice(0, 8)}</span></div>
+        </div>
       `;
       div.addEventListener('click', () => this._selectCommit(entry, div));
       frag.appendChild(div);
@@ -191,6 +207,110 @@ export class GitPanel {
       }
     });
   }
+}
+
+// ── Git graph rendering ───────────────────────────────────────────────
+
+const LANE_W = 12;
+const ROW_H = 44;
+const LANE_COLORS = ['#569cd6', '#c586c0', '#4ec9b0', '#d7ba7d', '#ce9178', '#9cdcfe', '#dcdcaa'];
+
+// Given commits (newest first) with { hash, parents }, returns per-commit info:
+//   { lane, parentLanes, activeBefore, activeAfter }
+function computeLanes(commits) {
+  const lanes = []; // index → expected-next parent hash (or null)
+  const info = {};
+
+  for (const c of commits) {
+    const expecting = [];
+    for (let i = 0; i < lanes.length; i++) if (lanes[i] === c.hash) expecting.push(i);
+
+    let lane;
+    if (expecting.length > 0) {
+      lane = expecting[0];
+      for (let i = 1; i < expecting.length; i++) lanes[expecting[i]] = null;
+    } else {
+      lane = lanes.findIndex(l => l == null);
+      if (lane === -1) { lane = lanes.length; lanes.push(null); }
+    }
+
+    const activeBefore = [...lanes];
+
+    const parents = c.parents || [];
+    const parentLanes = [];
+    if (parents.length > 0) {
+      lanes[lane] = parents[0];
+      parentLanes.push(lane);
+      for (let i = 1; i < parents.length; i++) {
+        // See if another active lane already expects this parent
+        let idx = lanes.findIndex(l => l === parents[i]);
+        if (idx === -1) {
+          idx = lanes.findIndex(l => l == null);
+          if (idx === -1) { idx = lanes.length; lanes.push(null); }
+          lanes[idx] = parents[i];
+        }
+        parentLanes.push(idx);
+      }
+    } else {
+      lanes[lane] = null;
+    }
+
+    info[c.hash] = { lane, parentLanes, activeBefore, activeAfter: [...lanes] };
+  }
+  return info;
+}
+
+function renderGutter(info, nextInfo) {
+  if (!info) return '';
+  const activeBefore = info.activeBefore || [];
+  const activeAfter = info.activeAfter || [];
+  const maxLanes = Math.max(activeBefore.length, activeAfter.length, info.lane + 1);
+  const width = Math.max(LANE_W * 1.5, (maxLanes + 1) * LANE_W);
+  const mid = ROW_H / 2;
+
+  let paths = '';
+
+  // Incoming lines (top → middle): every lane active BEFORE this row draws from top
+  for (let i = 0; i < activeBefore.length; i++) {
+    if (activeBefore[i] == null) continue;
+    const color = LANE_COLORS[i % LANE_COLORS.length];
+    const x = i * LANE_W + LANE_W / 2;
+    // If this lane is THIS commit's lane, line goes straight down to the dot
+    // If it's being merged here, it angles to the commit's lane
+    if (i === info.lane) {
+      paths += `<line x1="${x}" y1="0" x2="${x}" y2="${mid}" stroke="${color}" stroke-width="1.5"/>`;
+    } else {
+      // Merging lane: angle to commit lane
+      const targetX = info.lane * LANE_W + LANE_W / 2;
+      paths += `<line x1="${x}" y1="0" x2="${targetX}" y2="${mid}" stroke="${color}" stroke-width="1.5"/>`;
+    }
+  }
+
+  // Outgoing lines (middle → bottom): each lane active AFTER goes down
+  for (let i = 0; i < activeAfter.length; i++) {
+    if (activeAfter[i] == null) continue;
+    const color = LANE_COLORS[i % LANE_COLORS.length];
+    const x = i * LANE_W + LANE_W / 2;
+    if (info.parentLanes.includes(i)) {
+      // If this lane was opened by this commit (branching), angle from commit's lane
+      if (i !== info.lane) {
+        const fromX = info.lane * LANE_W + LANE_W / 2;
+        paths += `<line x1="${fromX}" y1="${mid}" x2="${x}" y2="${ROW_H}" stroke="${color}" stroke-width="1.5"/>`;
+      } else {
+        paths += `<line x1="${x}" y1="${mid}" x2="${x}" y2="${ROW_H}" stroke="${color}" stroke-width="1.5"/>`;
+      }
+    } else {
+      // Lane passes through (not touched here)
+      paths += `<line x1="${x}" y1="${mid}" x2="${x}" y2="${ROW_H}" stroke="${color}" stroke-width="1.5"/>`;
+    }
+  }
+
+  // Commit dot
+  const dotX = info.lane * LANE_W + LANE_W / 2;
+  const dotColor = LANE_COLORS[info.lane % LANE_COLORS.length];
+  paths += `<circle cx="${dotX}" cy="${mid}" r="4" fill="${dotColor}" stroke="var(--bg)" stroke-width="1.5"/>`;
+
+  return `<svg width="${width}" height="${ROW_H}" viewBox="0 0 ${width} ${ROW_H}">${paths}</svg>`;
 }
 
 function formatName(m) {
