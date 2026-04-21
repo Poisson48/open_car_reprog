@@ -3,6 +3,7 @@ import { HexEditor } from '../components/hex-editor.js';
 import { ParamPanel } from '../components/param-panel.js';
 import { MapEditor } from '../components/map-editor.js';
 import { GitPanel } from '../components/git-panel.js';
+import { AutoMods } from '../components/auto-mods.js';
 import { showEditModal } from './home.js';
 
 export async function renderProject(container, { projectId, onBack }) {
@@ -38,6 +39,7 @@ export async function renderProject(container, { projectId, onBack }) {
           <input type="text" id="goto-addr" placeholder="0x1E9DD4">
           <button class="btn btn-sm" id="btn-goto">↵ Go</button>
           <button class="btn btn-sm" id="btn-edit-project" title="Modifier les infos du projet">✎ Modifier</button>
+          <button class="btn btn-sm" id="btn-auto-mods" title="Modifications automatiques EDC16C34" style="color:var(--warn);border-color:var(--warn)" ${!project.hasRom ? 'disabled' : ''}>⚡ Auto-mods</button>
           <div style="flex:1"></div>
           ${!project.hasRom ? `
             <button class="btn btn-primary btn-sm" id="btn-import-rom">📂 Importer ROM</button>
@@ -176,6 +178,19 @@ export async function renderProject(container, { projectId, onBack }) {
   function rebindToolbar() {
     document.getElementById('btn-goto')?.addEventListener('click', gotoAddress);
     document.getElementById('goto-addr')?.addEventListener('keydown', e => { if (e.key === 'Enter') gotoAddress(); });
+    document.getElementById('btn-auto-mods')?.addEventListener('click', () => {
+      if (!romData) return;
+      const am = new AutoMods({
+        ecu: project.ecu,
+        romData,
+        onBytesChange: (offset, bytes) => {
+          hexEditor?.patchBytes(offset, bytes);
+          setStatus(`Auto-mod: 0x${offset.toString(16).toUpperCase()} modifié (${bytes.length} byte(s))`);
+        }
+      });
+      am.open();
+    });
+
     document.getElementById('btn-import-replace')?.addEventListener('click', () => {
       const fi = document.createElement('input'); fi.type = 'file'; fi.accept = '.bin,.BIN,.hex,.ols';
       fi.addEventListener('change', e => { const f = e.target.files[0]; if (f) importRom(f); });

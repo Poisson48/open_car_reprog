@@ -228,6 +228,34 @@ body {
 .map-toolbar .map-name { font-weight: 600; color: var(--accent); font-size: 12px; }
 .map-toolbar .map-desc { font-size: 11px; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+.map-sel-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: #1a2a1a;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.map-sel-bar.hidden { display: none; }
+.map-sel-bar .map-adj-btn { min-width: 42px; }
+
+/* Auto-mods modal */
+.am-section { margin-bottom: 16px; }
+.am-cat { font-size: 10px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; padding: 4px 0; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
+.am-item { background: var(--panel); border: 1px solid var(--border); padding: 10px 12px; margin-bottom: 6px; }
+.am-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.am-name { font-weight: 600; font-size: 12px; color: var(--text-hi); flex: 1; }
+.am-risk { font-size: 10px; }
+.am-risk-low { color: var(--accent2); }
+.am-risk-medium { color: var(--warn); }
+.am-risk-high { color: var(--danger); }
+.am-status { font-size: 11px; min-width: 70px; text-align: right; }
+.am-desc { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; }
+.am-note { font-size: 11px; color: var(--warn); margin-bottom: 6px; }
+.am-actions { display: flex; gap: 6px; }
+
 .map-content {
   display: flex;
   flex: 1;
