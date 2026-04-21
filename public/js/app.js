@@ -1,7 +1,14 @@
 import { renderHome } from './views/home.js';
 import { renderProject } from './views/project.js';
+import { api } from './api.js';
 
 const container = document.getElementById('view-container');
+
+// Load and display app version
+api.getVersion().then(({ version }) => {
+  const el = document.getElementById('version-badge');
+  if (el) el.textContent = `v${version}`;
+}).catch(() => {});
 
 function navigate(hash) {
   const [, view, id] = hash.split('/');

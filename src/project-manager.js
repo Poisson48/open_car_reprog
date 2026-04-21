@@ -32,13 +32,13 @@ class ProjectManager {
     return JSON.parse(fs.readFileSync(p, 'utf8'));
   }
 
-  async create({ name, ecu, description = '' }) {
+  async create({ name, ecu, description = '', vehicle = '', immat = '', year = '' }) {
     const id = uuidv4();
     const dir = this.getProjectDir(id);
     fs.mkdirSync(dir, { recursive: true });
 
     const meta = {
-      id, name, ecu, description,
+      id, name, ecu, description, vehicle, immat, year,
       createdAt: new Date().toISOString(),
       hasRom: false
     };
@@ -48,6 +48,14 @@ class ProjectManager {
     await gm.init();
     await gm.commit('Initial project');
 
+    return meta;
+  }
+
+  async update(id, fields) {
+    const meta = await this.get(id);
+    if (!meta) throw new Error('Project not found');
+    Object.assign(meta, fields);
+    fs.writeFileSync(path.join(this.getProjectDir(id), 'meta.json'), JSON.stringify(meta, null, 2));
     return meta;
   }
 

@@ -43,6 +43,13 @@ async function getA2l(ecu) {
 app.use(express.json({ limit: '8mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ── Version ───────────────────────────────────────────────────────────────────
+
+app.get('/api/version', (req, res) => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+  res.json({ version: pkg.version });
+});
+
 // ── Projects ──────────────────────────────────────────────────────────────────
 
 app.get('/api/projects', async (req, res) => {
@@ -51,9 +58,9 @@ app.get('/api/projects', async (req, res) => {
 
 app.post('/api/projects', async (req, res) => {
   try {
-    const { name, ecu, description } = req.body;
+    const { name, ecu, description, vehicle, immat, year } = req.body;
     if (!name || !ecu) return res.status(400).json({ error: 'name and ecu required' });
-    res.status(201).json(await pm.create({ name, ecu, description }));
+    res.status(201).json(await pm.create({ name, ecu, description, vehicle, immat, year }));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -63,6 +70,17 @@ app.get('/api/projects/:id', async (req, res) => {
   const p = await pm.get(req.params.id);
   if (!p) return res.status(404).json({ error: 'Not found' });
   res.json(p);
+});
+
+app.patch('/api/projects/:id', async (req, res) => {
+  try {
+    const allowed = ['name', 'description', 'vehicle', 'immat', 'year'];
+    const updates = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)));
+    const meta = await pm.update(req.params.id, updates);
+    res.json(meta);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
 });
 
 app.delete('/api/projects/:id', async (req, res) => {

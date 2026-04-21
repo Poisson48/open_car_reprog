@@ -3,6 +3,7 @@ import { HexEditor } from '../components/hex-editor.js';
 import { ParamPanel } from '../components/param-panel.js';
 import { MapEditor } from '../components/map-editor.js';
 import { GitPanel } from '../components/git-panel.js';
+import { showEditModal } from './home.js';
 
 export async function renderProject(container, { projectId, onBack }) {
   // Load project metadata
@@ -14,7 +15,13 @@ export async function renderProject(container, { projectId, onBack }) {
     return;
   }
 
-  document.getElementById('breadcrumb').textContent = `→ ${project.name} (${project.ecu.toUpperCase()})`;
+  function updateBreadcrumb() {
+    const parts = [project.name];
+    if (project.vehicle) parts.push(project.vehicle);
+    if (project.immat) parts.push(project.immat.toUpperCase());
+    document.getElementById('breadcrumb').textContent = `→ ${parts.join(' · ')} (${project.ecu.toUpperCase()})`;
+  }
+  updateBreadcrumb();
 
   // Render layout
   container.innerHTML = `
@@ -30,6 +37,7 @@ export async function renderProject(container, { projectId, onBack }) {
           <label>Aller à</label>
           <input type="text" id="goto-addr" placeholder="0x1E9DD4">
           <button class="btn btn-sm" id="btn-goto">↵ Go</button>
+          <button class="btn btn-sm" id="btn-edit-project" title="Modifier les infos du projet">✎ Modifier</button>
           <div style="flex:1"></div>
           ${!project.hasRom ? `
             <button class="btn btn-primary btn-sm" id="btn-import-rom">📂 Importer ROM</button>
@@ -133,6 +141,15 @@ export async function renderProject(container, { projectId, onBack }) {
       if (file) importRom(file, /\.ols$/i.test(file.name));
     });
   }
+
+  // ── Edit project button (always visible) ────────────────────────────────────
+
+  document.getElementById('btn-edit-project')?.addEventListener('click', () => {
+    showEditModal(project, async () => {
+      project = await api.getProject(projectId);
+      updateBreadcrumb();
+    });
+  });
 
   if (!project.hasRom) {
     const dz = document.getElementById('drop-zone');

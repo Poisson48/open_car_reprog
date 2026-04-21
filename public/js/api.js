@@ -18,10 +18,14 @@ async function req(method, url, body, isBlob = false) {
 }
 
 export const api = {
+  // App
+  getVersion: () => req('GET', '/api/version'),
+
   // Projects
   listProjects: () => req('GET', '/api/projects'),
   createProject: (data) => req('POST', '/api/projects', data),
   getProject: (id) => req('GET', `/api/projects/${id}`),
+  updateProject: (id, data) => req('PATCH', `/api/projects/${id}`, data),
   deleteProject: (id) => req('DELETE', `/api/projects/${id}`),
 
   // ROM

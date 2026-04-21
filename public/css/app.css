@@ -44,6 +44,7 @@ body {
 .titlebar h1 { font-size: 13px; color: var(--accent2); font-weight: 600; letter-spacing: 0.5px; }
 .titlebar .breadcrumb { color: var(--text-dim); font-size: 12px; }
 .titlebar .spacer { flex: 1; }
+.version-badge { font-size: 10px; color: var(--text-dim); padding: 2px 7px; border: 1px solid var(--border); border-radius: 10px; letter-spacing: 0.3px; }
 
 .workspace {
   display: flex;
@@ -363,9 +364,23 @@ table.map-table td.modified input { color: var(--modified); }
 .home-header {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .home-header h2 { font-size: 18px; font-weight: 600; color: var(--text-hi); }
+.home-search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.home-search:focus { border-color: var(--accent); }
 
 .project-grid {
   display: grid;
@@ -379,11 +394,26 @@ table.map-table td.modified input { color: var(--modified); }
   padding: 16px;
   cursor: pointer;
   transition: border-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .project-card:hover { border-color: var(--accent); }
-.project-card h3 { font-size: 14px; color: var(--text-hi); margin-bottom: 6px; }
-.project-card .ecu-badge { display: inline-block; font-size: 10px; padding: 2px 6px; background: #1a3050; color: var(--accent); margin-bottom: 8px; }
-.project-card p { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+.project-card-top { display: flex; align-items: flex-start; gap: 8px; }
+.project-card h3 { font-size: 14px; color: var(--text-hi); flex: 1; }
+.project-card .immat-badge {
+  font-size: 11px; font-weight: 700;
+  padding: 2px 8px;
+  background: #1e1e1e;
+  border: 1px solid var(--border);
+  color: var(--text-hi);
+  letter-spacing: 1px;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.project-card .ecu-badge { display: inline-block; font-size: 10px; padding: 2px 6px; background: #1a3050; color: var(--accent); align-self: flex-start; }
+.project-card .vehicle-line { font-size: 12px; color: var(--accent2); }
+.project-card p { font-size: 12px; color: var(--text-dim); }
 .project-card .meta { font-size: 11px; color: var(--text-dim); }
 .project-card .no-rom { color: var(--warn); font-size: 11px; }
 .project-card .has-rom { color: var(--accent2); font-size: 11px; }
