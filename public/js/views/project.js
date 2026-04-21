@@ -183,9 +183,17 @@ export async function renderProject(container, { projectId, onBack }) {
       const am = new AutoMods({
         ecu: project.ecu,
         romData,
+        projectId,
         onBytesChange: (offset, bytes) => {
-          hexEditor?.patchBytes(offset, bytes);
-          setStatus(`Auto-mod: 0x${offset.toString(16).toUpperCase()} modifié (${bytes.length} byte(s))`);
+          if (offset === 0 && bytes.length > 2) {
+            // Full ROM reload (Stage 1 / Pop & Bang server-side write)
+            const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+            hexEditor?.load(ab);
+            setStatus(`Auto-mod: ROM rechargée (${bytes.length} bytes)`);
+          } else {
+            hexEditor?.patchBytes(offset, bytes);
+            setStatus(`Auto-mod: 0x${offset.toString(16).toUpperCase()} modifié (${bytes.length} byte(s))`);
+          }
         }
       });
       am.open();

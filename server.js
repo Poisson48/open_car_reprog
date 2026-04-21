@@ -7,15 +7,22 @@ const ProjectManager = require('./src/project-manager');
 const GitManager = require('./src/git-manager');
 const A2lParser = require('./src/a2l-parser');
 const WinolsParser = require('./src/winols-parser');
+const { applyPctToMap, readValue, writeValue } = require('./src/rom-patcher');
+const { getEcu, listEcus } = require('./src/ecu-catalog');
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 32 * 1024 * 1024 } });
 
 const pm = new ProjectManager(path.join(__dirname, 'projects'));
 
-const ECU_A2L = {
-  edc16c34: path.join(__dirname, 'ressources', 'edc16c34', 'damos.a2l')
-};
+// Build A2L path map from catalog
+const ECU_A2L = {};
+for (const ecu of listEcus()) {
+  const entry = getEcu(ecu.id);
+  if (entry?.a2l) {
+    ECU_A2L[ecu.id] = path.join(__dirname, entry.a2l);
+  }
+}
 
 // A2L parsed cache (in-memory + file cache)
 const a2lCache = {};
@@ -74,8 +81,11 @@ app.get('/api/projects/:id', async (req, res) => {
 
 app.patch('/api/projects/:id', async (req, res) => {
   try {
-    const allowed = ['name', 'description', 'vehicle', 'immat', 'year'];
+    const allowed = ['name', 'description', 'vehicle', 'immat', 'year', 'ecu'];
     const updates = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)));
+    if (updates.ecu && !getEcu(updates.ecu)) {
+      return res.status(400).json({ error: `Unknown ECU: ${updates.ecu}` });
+    }
     const meta = await pm.update(req.params.id, updates);
     res.json(meta);
   } catch (e) {
@@ -197,6 +207,77 @@ app.get('/api/ecu/:ecu/parameters/:name', async (req, res) => {
   }
 
   res.json(enriched);
+});
+
+// ── ECU list ──────────────────────────────────────────────────────────────────
+
+app.get('/api/ecu', (req, res) => {
+  res.json(listEcus());
+});
+
+app.post('/api/projects/:id/stage1', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.status(400).json({ error: 'No ROM imported' });
+
+    const ecuDef = getEcu(proj.ecu);
+    const maps = ecuDef?.stage1Maps;
+    if (!maps) return res.status(400).json({ error: 'Stage 1 non supporté pour ce calculateur' });
+
+    // { mapName: pct } overrides from body, or use defaults
+    const pcts = req.body.pcts || {};
+
+    const romPath = pm.getRomPath(proj.id);
+    const rom = Buffer.from(fs.readFileSync(romPath));
+    const u8 = new Uint8Array(rom.buffer, rom.byteOffset, rom.byteLength);
+
+    const result = [];
+    for (const m of maps) {
+      const pct = pcts[m.name] !== undefined ? Number(pcts[m.name]) : m.defaultPct;
+      if (pct === 0) continue;
+      try {
+        const changed = applyPctToMap(u8, m.address, pct);
+        result.push({ map: m.name, pct, changed: changed.length });
+      } catch (e) {
+        result.push({ map: m.name, error: e.message });
+      }
+    }
+
+    fs.writeFileSync(romPath, rom);
+    res.json({ ok: true, maps: result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/projects/:id/popbang', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.status(400).json({ error: 'No ROM imported' });
+
+    const ecuDef = getEcu(proj.ecu);
+    const params = ecuDef?.popbangParams;
+    if (!params) return res.status(400).json({ error: 'Pop & bang non supporté pour ce calculateur' });
+
+    const { rpm = 3000, fuelQty = 10 } = req.body; // fuelQty in raw units (×10 mg)
+
+    const romPath = pm.getRomPath(proj.id);
+    const rom = Buffer.from(fs.readFileSync(romPath));
+    const u8 = new Uint8Array(rom.buffer, rom.byteOffset, rom.byteLength);
+
+    const clampedRpm = Math.max(params.nOvrRun.min, Math.min(params.nOvrRun.max, Math.round(rpm)));
+    const clampedQty = Math.max(params.qOvrRun.min, Math.min(params.qOvrRun.max, Math.round(fuelQty)));
+
+    writeValue(u8, params.nOvrRun.address, clampedRpm);
+    writeValue(u8, params.qOvrRun.address, clampedQty);
+
+    fs.writeFileSync(romPath, rom);
+    res.json({ ok: true, rpm: clampedRpm, fuelQty: clampedQty });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── WinOLS Import ─────────────────────────────────────────────────────────────

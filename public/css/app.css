@@ -440,6 +440,9 @@ table.map-table td.modified input { color: var(--modified); }
   font-family: inherit;
 }
 .project-card .ecu-badge { display: inline-block; font-size: 10px; padding: 2px 6px; background: #1a3050; color: var(--accent); align-self: flex-start; }
+.cap-badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; letter-spacing: .5px; }
+.cap-a2l    { background: #1a3a1a; color: #6dbf6d; }
+.cap-stage1 { background: #3a2810; color: #d4903a; }
 .project-card .vehicle-line { font-size: 12px; color: var(--accent2); }
 .project-card p { font-size: 12px; color: var(--text-dim); }
 .project-card .meta { font-size: 11px; color: var(--text-dim); }

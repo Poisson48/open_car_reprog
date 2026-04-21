@@ -1,5 +1,5 @@
 // Predefined binary patches and calibration shortcuts for supported ECUs
-// Each mod can be pattern-based (search & replace) or address-based
+// Each mod can be pattern-based (search & replace), address-based, or special type
 
 const MODS = {
   edc16c34: [
@@ -33,7 +33,7 @@ const MODS = {
       risk: 'medium',
       address: 0x1C4C4E,
       bytes:   [0x00, 0x00],
-      restore: null, // no known safe restore value — user should commit before applying
+      restore: null,
       type: 'address'
     },
     {
@@ -46,21 +46,20 @@ const MODS = {
       type: 'info'
     },
     {
-      id: 'boost_stage1',
+      id: 'stage1',
       category: 'Performance',
-      name: 'Stage 1 — Boost +15%',
-      description: 'Augmente la pression turbo de 15% sur la map boost (paramètre TCO_pMaxLimMapSp_MAP). Sélectionner la map et utiliser le bouton +15% dans l\'éditeur.',
+      name: 'Stage 1 — Cartographies +puissance',
+      description: 'Applique un pourcentage configurable sur les 5 cartographies clés du Stage 1 : demande couple pédale (Hi/Lo gear), conversion couple→injection (FMTC), pression rail et limite protection moteur.',
       risk: 'medium',
-      note: 'Chercher "TCO_pMaxLimMapSp" dans les paramètres.',
-      type: 'info'
+      type: 'stage1'
     },
     {
-      id: 'inject_stage1',
+      id: 'popbang',
       category: 'Performance',
-      name: 'Stage 1 — Injection +10%',
-      description: 'Augmente la quantité de carburant injectée de 10% (map InjQty). Chercher "InjQ" ou "Qmain".',
+      name: 'Pop & Bang — Overrun actif',
+      description: 'Active l\'injection en overrun (levée de pied) pour des pétarades à l\'échappement. Réglage RPM départ et quantité carburant (petite valeur = CT compatible).',
       risk: 'medium',
-      type: 'info'
+      type: 'popbang'
     },
     {
       id: 'speed_limiter_off',
@@ -73,10 +72,20 @@ const MODS = {
   ]
 };
 
+// Stage 1 map definitions with defaults
+const STAGE1_MAPS = [
+  { name: 'AccPed_trqEngHiGear_MAP', label: 'Couple pédale Hi gear',       defaultPct: 15 },
+  { name: 'AccPed_trqEngLoGear_MAP', label: 'Couple pédale Lo gear',       defaultPct: 15 },
+  { name: 'FMTC_trq2qBas_MAP',      label: 'Couple → Injection (FMTC)',   defaultPct: 12 },
+  { name: 'Rail_pSetPointBase_MAP',  label: 'Pression rail setpoint',      defaultPct: 10 },
+  { name: 'EngPrt_trqAPSLim_MAP',   label: 'Limite protection moteur',    defaultPct: 25 },
+];
+
 export class AutoMods {
-  constructor({ ecu, romData, onBytesChange, onClose }) {
+  constructor({ ecu, romData, projectId, onBytesChange, onClose }) {
     this.ecu = ecu;
     this.romData = romData;
+    this.projectId = projectId;
     this.onBytesChange = onBytesChange;
     this.onClose = onClose;
     this._results = new Map(); // mod.id → {found, offset}
@@ -111,23 +120,26 @@ export class AutoMods {
     const categories = [...new Set(mods.map(m => m.category))];
 
     const sections = categories.map(cat => {
-      const items = mods.filter(m => m.category === cat).map(m => `
+      const items = mods.filter(m => m.category === cat).map(m => {
+        const riskLabel = m.risk === 'low' ? '● bas' : m.risk === 'medium' ? '● moyen' : '● élevé';
+        return `
         <div class="am-item" id="am-${m.id}">
           <div class="am-item-header">
             <span class="am-name">${m.name}</span>
-            <span class="am-risk am-risk-${m.risk}">${m.risk === 'low' ? '● bas' : m.risk === 'medium' ? '● moyen' : '● élevé'}</span>
+            ${m.risk ? `<span class="am-risk am-risk-${m.risk}">${riskLabel}</span>` : ''}
             <span class="am-status" id="am-status-${m.id}">…</span>
           </div>
           <div class="am-desc">${m.description}</div>
           ${m.note ? `<div class="am-note">ℹ ${m.note}</div>` : ''}
           <div class="am-actions" id="am-actions-${m.id}"></div>
         </div>
-      `).join('');
+        `;
+      }).join('');
       return `<div class="am-section"><div class="am-cat">${cat}</div>${items}</div>`;
     }).join('');
 
     return `
-      <div class="modal" style="min-width:560px;max-width:700px;max-height:80vh;display:flex;flex-direction:column">
+      <div class="modal" style="min-width:580px;max-width:720px;max-height:85vh;display:flex;flex-direction:column">
         <div style="display:flex;align-items:center;margin-bottom:16px">
           <h2 style="flex:1">Modifications automatiques — ${this.ecu.toUpperCase()}</h2>
           <button class="btn btn-sm" id="am-close">✕</button>
@@ -166,6 +178,16 @@ export class AutoMods {
 
       if (mod.type === 'info') {
         actionsEl.innerHTML = `<span style="font-size:10px;color:var(--text-dim)">Action manuelle via l'éditeur de cartographies.</span>`;
+        continue;
+      }
+
+      if (mod.type === 'stage1') {
+        this._buildStage1Actions(actionsEl);
+        continue;
+      }
+
+      if (mod.type === 'popbang') {
+        this._buildPopBangActions(actionsEl);
         continue;
       }
 
@@ -208,11 +230,226 @@ export class AutoMods {
     }
   }
 
+  _buildStage1Actions(container) {
+    const statusEl = this._el.querySelector('#am-status-stage1');
+    if (statusEl) statusEl.textContent = '';
+
+    // Global percentage slider
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:4px';
+
+    // Per-map rows
+    const mapInputs = {};
+    const mapRows = STAGE1_MAPS.map(m => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px';
+
+      const check = document.createElement('input');
+      check.type = 'checkbox';
+      check.checked = true;
+      check.id = `s1-chk-${m.name}`;
+
+      const label = document.createElement('label');
+      label.htmlFor = check.id;
+      label.textContent = m.label;
+      label.style.cssText = 'flex:1;cursor:pointer';
+
+      const pctInput = document.createElement('input');
+      pctInput.type = 'number';
+      pctInput.value = m.defaultPct;
+      pctInput.min = -50; pctInput.max = 50; pctInput.step = 1;
+      pctInput.style.cssText = 'width:56px;padding:2px 4px;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:3px;text-align:right';
+
+      const pctLabel = document.createElement('span');
+      pctLabel.textContent = '%';
+      pctLabel.style.color = 'var(--text-dim)';
+
+      mapInputs[m.name] = { check, pctInput };
+      row.append(check, label, pctInput, pctLabel);
+      return row;
+    });
+
+    mapRows.forEach(r => wrap.appendChild(r));
+
+    // Apply button
+    const applyBtn = document.createElement('button');
+    applyBtn.className = 'btn btn-sm btn-primary';
+    applyBtn.textContent = 'Appliquer Stage 1';
+    applyBtn.style.marginTop = '4px';
+    applyBtn.addEventListener('click', async () => {
+      applyBtn.disabled = true;
+      applyBtn.textContent = 'Application…';
+
+      const pcts = {};
+      for (const m of STAGE1_MAPS) {
+        const { check, pctInput } = mapInputs[m.name];
+        pcts[m.name] = check.checked ? Number(pctInput.value) : 0;
+      }
+
+      try {
+        const res = await fetch(`/api/projects/${this.projectId}/stage1`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pcts })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        // Reload ROM data from server and notify
+        const romRes = await fetch(`/api/projects/${this.projectId}/rom`);
+        const romBuf = await romRes.arrayBuffer();
+        const newRom = new Uint8Array(romBuf);
+        // Copy into existing romData reference
+        this.romData.set(newRom);
+
+        const totalChanged = data.maps.reduce((s, m) => s + (m.changed || 0), 0);
+        applyBtn.className = 'btn btn-sm btn-success';
+        applyBtn.textContent = `✓ Stage 1 appliqué (${totalChanged} valeurs)`;
+
+        const statusEl = this._el.querySelector('#am-status-stage1');
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--accent2)">✓ Actif</span>';
+
+        if (this.onBytesChange) {
+          // Signal a broad change; hex editor will need reload
+          this.onBytesChange(0, newRom);
+        }
+      } catch (e) {
+        applyBtn.disabled = false;
+        applyBtn.textContent = 'Appliquer Stage 1';
+        alert('Erreur Stage 1: ' + e.message);
+      }
+    });
+
+    wrap.appendChild(applyBtn);
+    container.appendChild(wrap);
+  }
+
+  _buildPopBangActions(container) {
+    const statusEl = this._el.querySelector('#am-status-popbang');
+    if (statusEl) statusEl.textContent = '';
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:4px';
+
+    // RPM slider
+    const rpmRow = document.createElement('div');
+    rpmRow.style.cssText = 'display:flex;align-items:center;gap:10px;font-size:12px';
+    const rpmLabel = document.createElement('label');
+    rpmLabel.textContent = 'RPM départ overrun :';
+    rpmLabel.style.cssText = 'width:160px;flex-shrink:0';
+    const rpmSlider = document.createElement('input');
+    rpmSlider.type = 'range';
+    rpmSlider.min = 1000; rpmSlider.max = 5500; rpmSlider.step = 100; rpmSlider.value = 3000;
+    rpmSlider.style.cssText = 'flex:1';
+    const rpmVal = document.createElement('span');
+    rpmVal.textContent = '3000 tr/min';
+    rpmVal.style.cssText = 'width:90px;text-align:right;color:var(--accent)';
+    rpmSlider.addEventListener('input', () => { rpmVal.textContent = `${rpmSlider.value} tr/min`; });
+    rpmRow.append(rpmLabel, rpmSlider, rpmVal);
+
+    // Fuel qty slider
+    const qRow = document.createElement('div');
+    qRow.style.cssText = 'display:flex;align-items:center;gap:10px;font-size:12px';
+    const qLabel = document.createElement('label');
+    qLabel.textContent = 'Qté carburant (brut) :';
+    qLabel.style.cssText = 'width:160px;flex-shrink:0';
+    const qSlider = document.createElement('input');
+    qSlider.type = 'range';
+    qSlider.min = 0; qSlider.max = 100; qSlider.step = 1; qSlider.value = 10;
+    qSlider.style.cssText = 'flex:1';
+    const qVal = document.createElement('span');
+    qVal.textContent = '10 (≈1 mg/hub)';
+    qVal.style.cssText = 'width:120px;text-align:right;color:var(--accent)';
+    qSlider.addEventListener('input', () => { qVal.textContent = `${qSlider.value} (≈${(qSlider.value/10).toFixed(1)} mg/hub)`; });
+    qRow.append(qLabel, qSlider, qVal);
+
+    // CT note
+    const note = document.createElement('div');
+    note.className = 'am-note';
+    note.innerHTML = 'ℹ Valeur carburant &lt; 20 recommandée pour passer le CT (overrun quasi-invisible aux sondes lambda).';
+
+    // Apply + Disable buttons
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px';
+
+    const applyBtn = document.createElement('button');
+    applyBtn.className = 'btn btn-sm btn-primary';
+    applyBtn.textContent = 'Activer Pop & Bang';
+
+    const disableBtn = document.createElement('button');
+    disableBtn.className = 'btn btn-sm';
+    disableBtn.textContent = '↩ Désactiver';
+
+    const sendPopBang = async (rpm, fuelQty) => {
+      const res = await fetch(`/api/projects/${this.projectId}/popbang`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rpm, fuelQty })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data;
+    };
+
+    applyBtn.addEventListener('click', async () => {
+      applyBtn.disabled = true;
+      applyBtn.textContent = 'Application…';
+      try {
+        await sendPopBang(Number(rpmSlider.value), Number(qSlider.value));
+
+        const romRes = await fetch(`/api/projects/${this.projectId}/rom`);
+        const romBuf = await romRes.arrayBuffer();
+        this.romData.set(new Uint8Array(romBuf));
+
+        applyBtn.className = 'btn btn-sm btn-success';
+        applyBtn.textContent = `✓ Pop & Bang actif (${rpmSlider.value} tr/min)`;
+        disableBtn.disabled = false;
+
+        const statusEl = this._el.querySelector('#am-status-popbang');
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--accent2)">✓ Actif</span>';
+
+        if (this.onBytesChange) this.onBytesChange(0, this.romData);
+      } catch (e) {
+        applyBtn.disabled = false;
+        applyBtn.textContent = 'Activer Pop & Bang';
+        alert('Erreur Pop & Bang: ' + e.message);
+      }
+    });
+
+    disableBtn.addEventListener('click', async () => {
+      disableBtn.disabled = true;
+      try {
+        // Restore defaults: nOvrRun=1000 (stock), qOvrRun=0
+        await sendPopBang(1000, 0);
+
+        const romRes = await fetch(`/api/projects/${this.projectId}/rom`);
+        const romBuf = await romRes.arrayBuffer();
+        this.romData.set(new Uint8Array(romBuf));
+
+        applyBtn.className = 'btn btn-sm btn-primary';
+        applyBtn.textContent = 'Activer Pop & Bang';
+        applyBtn.disabled = false;
+
+        const statusEl = this._el.querySelector('#am-status-popbang');
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-dim)">Inactif</span>';
+
+        if (this.onBytesChange) this.onBytesChange(0, this.romData);
+      } catch (e) {
+        disableBtn.disabled = false;
+        alert('Erreur désactivation: ' + e.message);
+      }
+    });
+
+    btnRow.append(applyBtn, disableBtn);
+    wrap.append(rpmRow, qRow, note, btnRow);
+    container.appendChild(wrap);
+  }
+
   _updateStatus(mod) {
     const el = this._el?.querySelector(`#am-status-${mod.id}`);
     if (!el) return;
     const result = this._results.get(mod.id);
-    if (mod.type === 'info') { el.textContent = ''; return; }
+    if (mod.type === 'info' || mod.type === 'stage1' || mod.type === 'popbang') { el.textContent = ''; return; }
     if (!result?.found) { el.innerHTML = '<span style="color:var(--danger)">Non trouvé</span>'; return; }
     el.innerHTML = result.applied
       ? '<span style="color:var(--accent2)">✓ Actif</span>'

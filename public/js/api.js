@@ -20,6 +20,7 @@ async function req(method, url, body, isBlob = false) {
 export const api = {
   // App
   getVersion: () => req('GET', '/api/version'),
+  getEcuList: () => req('GET', '/api/ecu'),
 
   // Projects
   listProjects: () => req('GET', '/api/projects'),

@@ -1,6 +1,35 @@
 import { api } from '../api.js';
 
-export function renderHome(container, { onOpenProject }) {
+// ECU list cache — loaded once at startup
+let _ecuList = [];
+
+async function ensureEcuList() {
+  if (_ecuList.length) return _ecuList;
+  _ecuList = await api.getEcuList();
+  return _ecuList;
+}
+
+function populateEcuSelect(selectEl, currentId) {
+  const byFamily = {};
+  for (const e of _ecuList) {
+    (byFamily[e.family] = byFamily[e.family] || []).push(e);
+  }
+  selectEl.innerHTML = '';
+  for (const [family, ecus] of Object.entries(byFamily)) {
+    const grp = document.createElement('optgroup');
+    grp.label = family;
+    for (const e of ecus) {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = `${e.name}  —  ${e.application}`;
+      if (e.id === currentId) opt.selected = true;
+      grp.appendChild(opt);
+    }
+    selectEl.appendChild(grp);
+  }
+}
+
+export async function renderHome(container, { onOpenProject }) {
   container.innerHTML = `
     <div class="home-view">
       <div class="home-header">
@@ -13,6 +42,9 @@ export function renderHome(container, { onOpenProject }) {
       </div>
     </div>
   `;
+
+  await ensureEcuList();
+  populateEcuSelect(document.getElementById('np-ecu'), 'edc16c34');
 
   container.querySelector('#btn-new').addEventListener('click', () => showNewProjectModal());
 
@@ -91,12 +123,22 @@ export function renderHome(container, { onOpenProject }) {
       ? `<p>${p.description}</p>`
       : '';
 
+    // Show capability badges
+    const ecuEntry = _ecuList.find(e => e.id === p.ecu);
+    const capBadges = ecuEntry ? [
+      ecuEntry.hasA2l    ? '<span class="cap-badge cap-a2l" title="Paramètres A2L disponibles">A2L</span>' : '',
+      ecuEntry.hasStage1 ? '<span class="cap-badge cap-stage1" title="Stage 1 automatique disponible">S1</span>' : '',
+    ].filter(Boolean).join('') : '';
+
     card.innerHTML = `
       <div class="project-card-top">
         <h3>${p.name}</h3>
         ${immatHtml}
       </div>
-      <div><span class="ecu-badge">${p.ecu.toUpperCase()}</span></div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="ecu-badge">${p.ecu.toUpperCase()}</span>
+        ${capBadges}
+      </div>
       ${vehicleHtml}
       ${descHtml}
       <div class="meta">Créé le ${date}</div>
@@ -171,6 +213,7 @@ export function renderHome(container, { onOpenProject }) {
       ['np-name', 'np-vehicle', 'np-immat', 'np-year', 'np-desc'].forEach(id => {
         document.getElementById(id).value = '';
       });
+      populateEcuSelect(document.getElementById('np-ecu'), 'edc16c34');
     }
     function removeListeners() {
       document.getElementById('np-cancel').replaceWith(document.getElementById('np-cancel').cloneNode(true));
@@ -180,7 +223,9 @@ export function renderHome(container, { onOpenProject }) {
   }
 }
 
-function showEditModal(project, onSaved) {
+export async function showEditModal(project, onSaved) {
+  await ensureEcuList();
+
   const modal = document.getElementById('modal-edit-project');
   modal.classList.remove('hidden');
 
@@ -189,6 +234,7 @@ function showEditModal(project, onSaved) {
   document.getElementById('ep-immat').value = project.immat || '';
   document.getElementById('ep-year').value = project.year || '';
   document.getElementById('ep-desc').value = project.description || '';
+  populateEcuSelect(document.getElementById('ep-ecu'), project.ecu);
   document.getElementById('ep-name').focus();
 
   const onCancel = () => { modal.classList.add('hidden'); removeListeners(); };
@@ -198,6 +244,7 @@ function showEditModal(project, onSaved) {
     try {
       await api.updateProject(project.id, {
         name,
+        ecu: document.getElementById('ep-ecu').value,
         vehicle: document.getElementById('ep-vehicle').value.trim(),
         immat: document.getElementById('ep-immat').value.trim().toUpperCase(),
         year: document.getElementById('ep-year').value.trim(),
@@ -225,5 +272,3 @@ function showEditModal(project, onSaved) {
     document.getElementById('ep-save').replaceWith(document.getElementById('ep-save').cloneNode(true));
   }
 }
-
-export { showEditModal };
