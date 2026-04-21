@@ -234,6 +234,9 @@ export async function showEditModal(project, onSaved) {
   document.getElementById('ep-immat').value = project.immat || '';
   document.getElementById('ep-year').value = project.year || '';
   document.getElementById('ep-desc').value = project.description || '';
+  document.getElementById('ep-addr-base').value = project.displayAddressBase
+    ? '0x' + project.displayAddressBase.toString(16).toUpperCase()
+    : '';
   populateEcuSelect(document.getElementById('ep-ecu'), project.ecu);
   document.getElementById('ep-name').focus();
 
@@ -242,13 +245,16 @@ export async function showEditModal(project, onSaved) {
     const name = document.getElementById('ep-name').value.trim();
     if (!name) { document.getElementById('ep-name').focus(); return; }
     try {
+      const rawBase = document.getElementById('ep-addr-base').value.trim();
+      const displayAddressBase = rawBase ? (parseInt(rawBase, 16) >>> 0) : 0;
       await api.updateProject(project.id, {
         name,
         ecu: document.getElementById('ep-ecu').value,
         vehicle: document.getElementById('ep-vehicle').value.trim(),
         immat: document.getElementById('ep-immat').value.trim().toUpperCase(),
         year: document.getElementById('ep-year').value.trim(),
-        description: document.getElementById('ep-desc').value.trim()
+        description: document.getElementById('ep-desc').value.trim(),
+        displayAddressBase
       });
       modal.classList.add('hidden');
       removeListeners();

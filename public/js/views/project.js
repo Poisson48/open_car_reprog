@@ -113,6 +113,7 @@ export async function renderProject(container, { projectId, onBack }) {
     wrap.innerHTML = '';
     hexEditor = new HexEditor(wrap);
     hexEditor.load(buf);
+    if (project.displayAddressBase) hexEditor.setDisplayBase(project.displayAddressBase);
 
     hexEditor.onByteChange = (offset, value) => {
       setStatus(`Modifié: 0x${offset.toString(16).toUpperCase()} = 0x${value.toString(16).toUpperCase().padStart(2, '0')} | ${hexEditor.modified.size} byte(s) non sauvegardé(s)`);
@@ -217,8 +218,13 @@ export async function renderProject(container, { projectId, onBack }) {
     if (!hexEditor) return;
     const raw = document.getElementById('goto-addr')?.value.trim();
     if (!raw) return;
-    const addr = raw.startsWith('0x') || raw.startsWith('0X') ? parseInt(raw, 16) : parseInt(raw, 16);
-    if (!isNaN(addr)) hexEditor.scrollToOffset(addr);
+    const addr = parseInt(raw, 16);
+    if (!isNaN(addr)) {
+      // The input uses whatever address system the hex editor displays, so
+      // subtract the display base to get a file offset.
+      const fileOff = (addr - (hexEditor.displayBase || 0)) >>> 0;
+      hexEditor.scrollToOffset(fileOff);
+    }
   }
 
   // ── Param Panel ─────────────────────────────────────────────────────────────

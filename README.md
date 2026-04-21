@@ -15,7 +15,13 @@ pour toute la partie versionnement / comparaison / variantes.
 - **Import** `.bin`, `.hex` (Intel HEX), `.ols` (WinOLS ZIP), binaire brut
 - **Backup original immuable** — `rom.original.bin` créé à l'import, jamais écrasé
 - **Éditeur hexadécimal canvas** — virtual scroll sur 2 Mo (131k lignes), édition nibble par nibble
+- **Base d'adresses configurable** — champ "Base adresses affichage (hex)" dans le modal d'édition
+  du projet. Les ROMs dumpées avec un décalage mémoire (ex : flash mappée à `0x80000000`) peuvent
+  afficher leurs adresses réelles dans l'hex editor et le "Go to" sans toucher au fichier.
 - **Éditeur de cartographies** — heatmap 2D, sélection cellule / plage / ligne / colonne, ajustements ±%
+- **Record layouts variés supportés** — le lecteur respecte le `RECORD_LAYOUT` A2L (présence/absence
+  des `NO_AXIS_PTS_X/Y` inline, dimensions fixes via `maxAxisPoints`, COM_AXIS partagés). Un badge
+  `⚠ Layout` s'affiche si l'en-tête nx/ny lu en ROM est illisible (ROM d'une autre version firmware).
 - **6638 paramètres A2L** parsés depuis le DAMOS (cache JSON de 3,1 Mo généré au 1er démarrage)
 - **Navigateur de paramètres** — recherche texte, filtres VALUE / CURVE / MAP / VAL_BLK, scroll infini
 

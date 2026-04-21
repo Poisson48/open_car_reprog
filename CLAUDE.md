@@ -25,8 +25,9 @@ server.js                   Express REST API + point d'entrée
 src/
   ecu-catalog.js            Registre de 13 ECUs (EDC16/EDC17/ME7/MED17)
   project-manager.js        Projets sur filesystem (projects/<uuid>/)
-  git-manager.js            Git par projet (simple-git + execFile pour diff binaire)
+  git-manager.js            Git par projet : branches, log avec parents+refs, diff binaire, WIP auto-commit au switch
   a2l-parser.js             Parser ASAP2 récursif → 6638 caractéristiques EDC16C34
+  map-differ.js             Calcule quelles caractéristiques A2L diffèrent entre 2 buffers (intervalles + tightness)
   rom-patcher.js            Patch ROM Kf_Xs16_Ys16_Ws16 (SWORD big-endian)
   winols-parser.js          Import ZIP / Intel HEX / binaire brut
 public/
@@ -36,17 +37,26 @@ public/
     app.js                  Router hash (#/ home, #/project/:id)
     api.js                  Fetch wrapper vers l'API REST
     views/
-      home.js               Grille projets, recherche, modals new/edit
+      home.js               Grille projets, recherche, modals new/edit (dont champ displayAddressBase)
       project.js            Vue projet : toolbar, hex editor, map editor, git panel
     components/
-      hex-editor.js         Canvas + virtual scroll (2MB = 131k lignes × 20px)
-      map-editor.js         Heatmap canvas, sélection cellules, ±% adjustments
+      hex-editor.js         Canvas + virtual scroll (2MB = 131k lignes × 20px), displayBase pour décaler les adresses affichées
+      map-editor.js         Heatmap canvas, sélection cellules, ±% adjustments, mode compare (deltas vert/rouge)
       param-panel.js        Sidebar paramètres A2L avec recherche/filtre
-      git-panel.js          Historique git, diff binaire, restore
+      git-panel.js          Historique git avec graph SVG (lanes colorées + ref badges), diff map-level, restore, ✨ suggestion msg
+      branch-switcher.js    Dropdown branches dans la toolbar
       auto-mods.js          Modifications automatiques par ECU
 ressources/
   edc16c34/damos.a2l        Fichier A2L Bosch EDC16C34 (440k lignes)
-  edc16c34/damos.cache.json Cache JSON parsé (3.1 MB, gitignored, généré au 1er accès)
+  edc16c34/damos.cache.json Cache JSON parsé (3.1 MB, gitignored, généré au 1er accès — SUPPRIMER pour forcer le re-parse)
+  edc16c34/ori.BIN          ROM de référence (partielle, calibration seule — pas de section code)
+  edc16c34/9663944680.Bin   Stock Bosch PSA (calibration + signatures crypto, pas de code)
+  edc16c34/1.7bar boost…    Tune complet (code + calibration + signatures MAC/RSA regénérées par le flasher)
+tests/
+  *.test.js                 Tests Playwright end-to-end, lancés via `node tests/<x>.test.js`
+  scripts/                  Scripts d'analyse offline (checksum forensics…)
+docs/
+  screenshots/              Screenshots des features, référencés dans README
 ```
 
 ## API REST
@@ -57,15 +67,20 @@ ressources/
 | GET | /api/ecu | Liste des 13 ECUs du catalog |
 | GET | /api/projects | Liste projets |
 | POST | /api/projects | Créer projet |
-| GET/PATCH/DELETE | /api/projects/:id | CRUD projet (champs : name, vehicle, immat, year, ecu, description) |
+| GET/PATCH/DELETE | /api/projects/:id | CRUD projet (champs : name, vehicle, immat, year, ecu, description, displayAddressBase) |
 | POST | /api/projects/:id/rom | Importer ROM |
-| GET | /api/projects/:id/rom | Télécharger ROM |
+| GET | /api/projects/:id/rom | Télécharger ROM (query `?commit=<hash>` → version à ce commit) |
 | GET | /api/projects/:id/rom/backup | ROM originale |
 | PATCH | /api/projects/:id/rom/bytes | Patcher octets (base64) |
 | POST | /api/projects/:id/git/commit | Commit git |
-| GET | /api/projects/:id/git/log | Historique |
-| GET | /api/projects/:id/git/diff/:hash | Diff binaire |
+| GET | /api/projects/:id/git/log | Historique (inclut parents, refs HEAD/branch/tag) |
+| GET | /api/projects/:id/git/diff/:hash | Diff binaire (legacy) |
+| GET | /api/projects/:id/git/diff-maps/:hash | **Diff map-level** : quelles caractéristiques A2L changent |
+| GET | /api/projects/:id/git/diff-maps-head | Diff HEAD vs working tree (utilisé par ✨ auto-message) |
 | POST | /api/projects/:id/git/restore/:hash | Restaurer version |
+| GET/POST | /api/projects/:id/git/branches | Lister / créer |
+| PUT | /api/projects/:id/git/branches/:name | Switch (auto-commit WIP si dirty) |
+| DELETE | /api/projects/:id/git/branches/:name | Supprimer |
 | GET | /api/ecu/:ecu/parameters | Paramètres A2L (search, type, offset, limit) |
 | GET | /api/ecu/:ecu/parameters/:name | Paramètre détaillé |
 | POST | /api/projects/:id/import-winols | Import WinOLS (.ols/.zip/hex/bin) |
@@ -119,11 +134,33 @@ Pour ajouter un ECU : remplir son entrée dans `src/ecu-catalog.js`
 Le canvas redessine uniquement les ~30 lignes visibles.
 Bug scroll corrigé : `evLayer` (div top layer) forwardait pas les events `wheel` au `scroller` → ajout listener `wheel` → `scroller.scrollTop += e.deltaY`.
 
+**`displayBase`** : champ optionnel sur `HexEditor` pour afficher les adresses avec un décalage
+(ex : ROM mappée à `0x80000000` en mémoire physique). Le décalage est purement visuel — les offsets
+fichier restent inchangés. La valeur est persistée en meta projet (`displayAddressBase`).
+
+## Parser A2L — attention AXIS_DESCR
+
+L'ordre ASAP2 des champs positionnels de `AXIS_DESCR` est :
+`Attribute InputQuantity Conversion MaxAxisPoints LowerLimit UpperLimit` (6 champs).
+**Ne pas** ajouter `RecordLayout`/`MaxDiff` (ancienne erreur → `maxAxisPoints=32767` faux sur toutes les maps).
+Le dataType d'axe est résolu via le RECORD_LAYOUT du parent (STD_AXIS) ou de l'AXIS_PTS référencé (COM_AXIS).
+
+## Tests
+
+Playwright est installé (devDep). Chaque feature a un test `tests/<feature>.test.js` qui :
+- crée un projet via API, importe un ROM synthétique
+- manipule l'UI via playwright headless (chromium)
+- screenshote dans `tests/screenshots/` (gitignoré) + copie les utiles dans `docs/screenshots/` (commités)
+
+Lancer : `node tests/<name>.test.js` (serveur sur 3001).
+
 ## Points à améliorer / bugs connus
 
+- Checksums EDC16C34 : analyse offline dans `tests/scripts/analyze-checksums.js` montre que les
+  zones hors calibration contiennent des signatures cryptographiques (MAC/RSA) regénérées par le
+  flasher, pas des sommes triviales. L'algo exact reste à reverser. La feature "compare vs stock"
+  via la map compare view mitige déjà le problème pour la lecture.
 - Les ECUs autres qu'edc16c34 n'ont pas d'adresses Stage 1 / pop&bang (à compléter)
-- Le highlight dans le hex editor lors de la sélection d'un paramètre MAP calcule
-  une taille approximative (à affiner avec les vraies dimensions lues en ROM)
 - Pas encore de déploiement serveur (hébergement mutualisé OVH incompatible Node.js,
   VPS prévu ultérieurement sur fish-technics.fr)
 

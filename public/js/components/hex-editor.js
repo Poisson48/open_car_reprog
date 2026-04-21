@@ -27,10 +27,16 @@ export class HexEditor {
     this.selectedOffset = -1;
     this.editNibble = 0;      // 0 = high nibble, 1 = low nibble
     this.onByteChange = null;
+    this.displayBase = 0;     // added to the displayed address (does not affect file offsets)
     this._scrollTop = 0;
     this._raf = null;
 
     this._build();
+  }
+
+  setDisplayBase(base) {
+    this.displayBase = (base >>> 0);
+    this._render();
   }
 
   _build() {
@@ -175,9 +181,11 @@ export class HexEditor {
         ctx.fillRect(0, y, W, ROW_H);
       }
 
-      // Address
+      // Address (with optional display base for ROM dumps whose A2L is
+      // mapped at a different memory offset than the file)
       ctx.fillStyle = '#606070';
-      ctx.fillText(`${(baseOffset).toString(16).toUpperCase().padStart(7, '0')}`, 4, y + ROW_H / 2);
+      const addr = (baseOffset + (this.displayBase || 0)) >>> 0;
+      ctx.fillText(addr.toString(16).toUpperCase().padStart(7, '0'), 4, y + ROW_H / 2);
 
       // Divider
       ctx.fillStyle = '#333340';
