@@ -695,3 +695,16 @@ table.map-table td.modified input { color: var(--modified); }
 .tag-curve   { background: #1a1a3a; color: #569cd6; }
 .tag-val_blk { background: #1a3a2a; color: #4ec9b0; }
 .tag-value   { background: #3a3a1a; color: #d7ba7d; }
+
+.git-commit-input-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.git-commit-input-row input { flex: 1; }
+#git-suggest-btn {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  font-size: 13px;
+  min-width: 32px;
+}

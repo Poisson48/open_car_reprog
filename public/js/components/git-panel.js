@@ -19,7 +19,10 @@ export class GitPanel {
         <button class="btn btn-sm" id="git-refresh">↻</button>
       </div>
       <div class="git-commit-area">
-        <input type="text" id="git-commit-msg" placeholder="Message de commit…">
+        <div class="git-commit-input-row">
+          <input type="text" id="git-commit-msg" placeholder="Message de commit…">
+          <button class="btn btn-sm" id="git-suggest-btn" title="Suggérer un message depuis les cartes modifiées">✨</button>
+        </div>
         <button class="btn btn-success btn-sm" id="git-commit-btn" style="width:100%">💾 Commit modifications</button>
       </div>
       <div class="git-log" id="git-log"></div>
@@ -28,9 +31,40 @@ export class GitPanel {
 
     this.logEl = this.el.querySelector('#git-log');
     this.diffEl = this.el.querySelector('#git-diff');
+    this.msgEl = this.el.querySelector('#git-commit-msg');
 
     this.el.querySelector('#git-refresh').addEventListener('click', () => this.refresh());
     this.el.querySelector('#git-commit-btn').addEventListener('click', () => this._commit());
+    this.el.querySelector('#git-suggest-btn').addEventListener('click', () => this._suggestMsg(true));
+
+    // Auto-suggest when user focuses an empty input
+    this.msgEl.addEventListener('focus', () => {
+      if (!this.msgEl.value.trim()) this._suggestMsg(false);
+    });
+  }
+
+  async _suggestMsg(force) {
+    try {
+      const { maps } = await api.gitDiffMapsHead(this.projectId);
+      if (!maps || !maps.length) {
+        if (force) this._flashSuggest('rien à committer');
+        return;
+      }
+      const msg = formatCommitMsg(maps);
+      if (force || !this.msgEl.value.trim()) {
+        this.msgEl.value = msg;
+        this.msgEl.dataset.autofilled = '1';
+      }
+    } catch {
+      if (force) this._flashSuggest('erreur');
+    }
+  }
+
+  _flashSuggest(text) {
+    const btn = this.el.querySelector('#git-suggest-btn');
+    const old = btn.textContent;
+    btn.textContent = text;
+    setTimeout(() => { btn.textContent = old; }, 1200);
   }
 
   async refresh() {
@@ -157,4 +191,35 @@ export class GitPanel {
       }
     });
   }
+}
+
+function formatName(m) {
+  if (m.sample) {
+    const d = m.sample.after - m.sample.before;
+    const pct = m.sample.before !== 0 ? Math.round((d / Math.abs(m.sample.before)) * 100) : null;
+    const delta = pct !== null ? `${d >= 0 ? '+' : ''}${pct}%` : `${d >= 0 ? '+' : ''}${d}`;
+    return `${m.name} ${delta}`;
+  }
+  return `${m.name}: ${m.cellsChanged} cell${m.cellsChanged > 1 ? 's' : ''}`;
+}
+
+function formatCommitMsg(maps) {
+  const top = maps[0];
+  const next = maps[1];
+
+  // Solo winner: top is a tight fit AND clearly ahead of the next one
+  const soloWinner = top.tightness >= 0.5 && (!next || next.tightness < top.tightness * 0.5);
+  if (maps.length === 1 || soloWinner) return formatName(top);
+
+  // Filter out loose overlap noise — keep matches within 30% of the top tightness
+  const tight = maps.filter(m => m.tightness >= (top.tightness || 0) * 0.3);
+  const display = tight.length >= 2 ? tight : maps;
+
+  // Detect Stage 1 pattern
+  const stage1 = new Set(['AccPed_trqEngHiGear_MAP', 'AccPed_trqEngLoGear_MAP', 'FMTC_trq2qBas_MAP', 'Rail_pSetPointBase_MAP', 'EngPrt_trqAPSLim_MAP']);
+  const stage1Hit = [...stage1].filter(n => display.find(m => m.name === n)).length;
+  if (stage1Hit >= 3) return `Stage 1 (${stage1Hit}/5 cartes)`;
+
+  if (display.length <= 4) return display.map(m => m.name).join(', ');
+  return `${display.length} cartes : ${display.slice(0, 3).map(m => m.name).join(', ')}, …`;
 }

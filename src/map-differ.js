@@ -89,6 +89,10 @@ function mapsChanged(bufA, bufB, characteristics) {
     if (seen.has(c.name)) continue;
     seen.add(c.name);
 
+    const cellsChanged = countDiffCells(bufA, bufB, c.address, size);
+    const totalCells = Math.max(1, Math.floor(size / 2));
+    const tightness = cellsChanged / totalCells;
+
     results.push({
       name: c.name,
       type: c.type,
@@ -96,14 +100,18 @@ function mapsChanged(bufA, bufB, characteristics) {
       size,
       unit: c.unit || '',
       description: (c.description || '').slice(0, 120),
-      cellsChanged: countDiffCells(bufA, bufB, c.address, size),
+      cellsChanged,
+      totalCells,
+      tightness,
       sample: sampleChange(bufA, bufB, c.address, size)
     });
   }
 
-  // Sort: most cells changed first, then MAPs before CURVEs before VALUE.
+  // Ranking: prefer tighter-fitting matches, then more cells changed, then type weight.
+  // A VALUE hit exactly (tightness 1.0) ranks above a big MAP sparsely touched (tightness 0.01).
   const typeWeight = { MAP: 3, CURVE: 2, VAL_BLK: 2, VALUE: 1 };
   results.sort((x, y) => {
+    if (Math.abs(y.tightness - x.tightness) > 0.02) return y.tightness - x.tightness;
     if (y.cellsChanged !== x.cellsChanged) return y.cellsChanged - x.cellsChanged;
     return (typeWeight[y.type] || 0) - (typeWeight[x.type] || 0);
   });

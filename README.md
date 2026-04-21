@@ -42,6 +42,15 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
 
   Click sur une ligne → ouvre la carte dans l'éditeur + saute à son adresse dans l'hex editor.
 
+- **Messages de commit auto-générés** — bouton `✨` à côté du champ message, ou focus sur le champ vide.
+  Le serveur calcule le diff entre HEAD et la working tree, et propose :
+
+  - 1 carte modifiée à l'endroit exact → `ACCD_uSRCMin_C +360%`
+  - Plusieurs cartes → `5 cartes : ACCD_DebNplDef_C, ACCD_DebNplOK_C, …`
+  - Pattern Stage 1 reconnu → `Stage 1 (5/5 cartes)`
+
+  ![auto commit msg](docs/screenshots/auto-commit-msg.png)
+
 - **Restauration** — bouton `⟲ Restaurer` par commit pour revenir à n'importe quel état.
 
 ---
