@@ -1,0 +1,27 @@
+https://www.lesamisdelaprog.com/fap-dpf/5897-tuto-fap-off-edc16c34-edc16c3-psa.html
+
+https://www.lesamisdelaprog.com/fap-dpf/32-suppression-fap-edc16c34.html
+https://www.lesamisdelaprog.com/fap-dpf/5897-tuto-fap-off-edc16c34-edc16c3-psa.html
+https://www.lesamisdelaprog.com/fap-dpf/3796-fap-off-206-1-6-110-edc16c34-4.html
+https://www.lesamisdelaprog.com/fap-dpf/8638-petit-coup-de-main-dpf-off-edc16c34-confiance-ecusafe-3.html
+https://sites.google.com/site/vagecumap/finding-dpf-switch-in-edc16-ecu\
+regen before remove
+fap address 1E9DD4 16bit
+
+https://sites.google.com/site/vagecumap/diesel-engine-control
+https://www.lesamisdelaprog.com/tutos/1285-tutoriel-detaille-winols-astuces-and-fonctions.html
+
+Cherche 00 0C 3B 0D 03
+7F 00 00 00 00 00 00 00 00 02 01 01 00 0C 3B 0D 03 - FAP ON
+7F 00 00 00 00 00 00 00 00 02 00 00 00 0C 3B 0D 03 - FAP OFF
+Mettre en haut en HEX (FF) 8 Bit
+/ CLIC SUR 255
+
+
+16bit 255 hilo 
+
+
+EGR hysterisis
+Va voir a l'adresse : 1C4C4E 
+https://www.ecuconnections.com/forum/viewtopic.php?t=48143
+https://www.lesamisdelaprog.com/rge-egr/14540-edc-16c34-308-hdi-1-6l-110cv.html

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>open-car-reprog</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div id="app">
+  <div class="titlebar">
+    <h1>open-car-reprog</h1>
+    <span class="breadcrumb" id="breadcrumb"></span>
+    <span class="spacer"></span>
+    <button class="btn btn-sm" id="btn-home">⌂ Projets</button>
+  </div>
+
+  <div id="view-container" style="flex:1;display:flex;overflow:hidden;"></div>
+
+  <div class="status-bar" id="status-bar">
+    <span>Prêt</span>
+  </div>
+</div>
+
+<!-- New Project Modal -->
+<div class="modal-overlay hidden" id="modal-new-project">
+  <div class="modal">
+    <h2>Nouveau projet</h2>
+    <label>Nom du projet</label>
+    <input type="text" id="np-name" placeholder="ex: 206 HDI 110cv">
+    <label>ECU / Calculateur</label>
+    <select id="np-ecu">
+      <option value="edc16c34">EDC16C34 (PSA 1.6 HDi)</option>
+    </select>
+    <label>Description (optionnel)</label>
+    <input type="text" id="np-desc" placeholder="ex: Dépollution FAP + stage 1">
+    <div class="modal-actions">
+      <button class="btn" id="np-cancel">Annuler</button>
+      <button class="btn btn-primary" id="np-create">Créer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Commit Modal -->
+<div class="modal-overlay hidden" id="modal-commit">
+  <div class="modal">
+    <h2>Sauvegarder les modifications</h2>
+    <label>Message de commit</label>
+    <input type="text" id="commit-msg" placeholder="ex: FAP OFF - adresse 1E9DD4">
+    <div class="modal-actions">
+      <button class="btn" id="commit-cancel">Annuler</button>
+      <button class="btn btn-success" id="commit-confirm">💾 Commit</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

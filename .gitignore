@@ -1,0 +1,5 @@
+node_modules/
+projects/
+ressources/edc16c34/*.cache.json
+*.log
+.env
