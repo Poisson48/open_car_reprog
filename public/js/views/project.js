@@ -4,6 +4,7 @@ import { ParamPanel } from '../components/param-panel.js';
 import { MapEditor } from '../components/map-editor.js';
 import { GitPanel } from '../components/git-panel.js';
 import { AutoMods } from '../components/auto-mods.js';
+import { BranchSwitcher } from '../components/branch-switcher.js';
 import { showEditModal } from './home.js';
 
 export async function renderProject(container, { projectId, onBack }) {
@@ -40,6 +41,7 @@ export async function renderProject(container, { projectId, onBack }) {
           <button class="btn btn-sm" id="btn-goto">↵ Go</button>
           <button class="btn btn-sm" id="btn-edit-project" title="Modifier les infos du projet">✎ Modifier</button>
           <button class="btn btn-sm" id="btn-auto-mods" title="Modifications automatiques EDC16C34" style="color:var(--warn);border-color:var(--warn)" ${!project.hasRom ? 'disabled' : ''}>⚡ Auto-mods</button>
+          <span id="branch-switcher-slot"></span>
           <div style="flex:1"></div>
           ${!project.hasRom ? `
             <button class="btn btn-primary btn-sm" id="btn-import-rom">📂 Importer ROM</button>
@@ -254,6 +256,20 @@ export async function renderProject(container, { projectId, onBack }) {
     projectId,
     onRestore: async () => {
       if (project.hasRom) await loadRom();
+    }
+  });
+
+  // ── Branch switcher ──────────────────────────────────────────────────────────
+
+  const branchSwitcher = new BranchSwitcher(document.getElementById('branch-switcher-slot'), {
+    projectId,
+    hasDirtyEditor: () => !!hexEditor?.modified?.size,
+    onSwitch: async (name, info) => {
+      if (hexEditor) hexEditor.clearModified?.();
+      if (project.hasRom) await loadRom();
+      await gitPanel.refresh();
+      const suffix = info?.autoCommitted ? ' (changements auto-commités avant switch)' : info?.created ? ' (nouvelle branche)' : '';
+      setStatus(`Branche : ${name}${suffix}`);
     }
   });
 

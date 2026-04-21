@@ -566,3 +566,92 @@ table.map-table td.modified input { color: var(--modified); }
   flex-shrink: 0;
 }
 .resizer:hover { background: var(--accent); }
+
+/* ── Branch switcher ─────────────────────────── */
+
+.branch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+}
+.branch-btn .branch-icon { color: var(--accent2); font-weight: bold; }
+.branch-btn .branch-name {
+  color: var(--text-hi);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.branch-btn .branch-caret { color: var(--text-dim); font-size: 10px; }
+
+.branch-popover {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  min-width: 260px;
+  max-width: 360px;
+  z-index: 1000;
+  font-size: 12px;
+  border-radius: 3px;
+}
+.branch-pop-header {
+  padding: 8px 12px;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.5px;
+}
+.branch-list {
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.branch-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  color: var(--text);
+}
+.branch-item:hover { background: var(--panel); }
+.branch-item.current { color: var(--text-hi); cursor: default; }
+.branch-item.current:hover { background: transparent; }
+.branch-marker {
+  width: 10px;
+  color: var(--accent2);
+  font-size: 10px;
+  text-align: center;
+}
+.branch-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.branch-del {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 11px;
+  border-radius: 2px;
+}
+.branch-del:hover { color: var(--danger); background: rgba(244,71,71,0.1); }
+
+.branch-new {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+}
+.branch-new input {
+  flex: 1;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 11px;
+}
+.branch-new input:focus { border-color: var(--accent); outline: none; }

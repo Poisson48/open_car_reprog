@@ -54,6 +54,10 @@ export const api = {
   gitLog: (id) => req('GET', `/api/projects/${id}/git/log`),
   gitDiff: (id, hash) => req('GET', `/api/projects/${id}/git/diff/${hash}`),
   gitRestore: (id, hash) => req('POST', `/api/projects/${id}/git/restore/${hash}`),
+  gitBranches: (id) => req('GET', `/api/projects/${id}/git/branches`),
+  gitCreateBranch: (id, name) => req('POST', `/api/projects/${id}/git/branches`, { name }),
+  gitSwitchBranch: (id, name) => req('PUT', `/api/projects/${id}/git/branches/${encodeURIComponent(name)}`),
+  gitDeleteBranch: (id, name) => req('DELETE', `/api/projects/${id}/git/branches/${encodeURIComponent(name)}`),
 
   // ECU Parameters
   getParams: (id, opts = {}) => {

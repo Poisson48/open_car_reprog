@@ -71,6 +71,47 @@ class GitManager {
     return this.git.status();
   }
 
+  async listBranches() {
+    try {
+      const b = await this.git.branch();
+      return {
+        current: b.current,
+        all: b.all.filter(n => !n.startsWith('remotes/'))
+      };
+    } catch {
+      return { current: null, all: [] };
+    }
+  }
+
+  async createBranch(name) {
+    if (!/^[a-zA-Z0-9._/-]+$/.test(name)) {
+      throw new Error('Nom de branche invalide (lettres, chiffres, . _ / - uniquement)');
+    }
+    const { all } = await this.listBranches();
+    if (all.includes(name)) throw new Error(`La branche "${name}" existe déjà`);
+    await this.git.checkoutLocalBranch(name);
+    return { name };
+  }
+
+  async switchBranch(name) {
+    const status = await this.git.status();
+    let autoCommitted = false;
+    if (status.modified.length || status.not_added.length || status.created.length) {
+      const current = (await this.git.branch()).current;
+      await this.git.add('.');
+      await this.git.commit(`WIP on ${current}`);
+      autoCommitted = true;
+    }
+    await this.git.checkout(name);
+    return { name, autoCommitted };
+  }
+
+  async deleteBranch(name) {
+    const { current } = await this.listBranches();
+    if (name === current) throw new Error('Impossible de supprimer la branche courante');
+    await this.git.deleteLocalBranch(name, true);
+  }
+
   async _showBinary(hash, file) {
     try {
       const { stdout } = await execFileAsync('git', ['show', `${hash}:${file}`], {

@@ -166,6 +166,47 @@ app.post('/api/projects/:id/git/restore/:hash', async (req, res) => {
   }
 });
 
+app.get('/api/projects/:id/git/branches', async (req, res) => {
+  try {
+    const gm = new GitManager(pm.getProjectDir(req.params.id));
+    res.json(await gm.listBranches());
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/projects/:id/git/branches', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const gm = new GitManager(pm.getProjectDir(req.params.id));
+    const result = await gm.createBranch(name);
+    res.status(201).json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.put('/api/projects/:id/git/branches/:name', async (req, res) => {
+  try {
+    const gm = new GitManager(pm.getProjectDir(req.params.id));
+    const result = await gm.switchBranch(req.params.name);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.delete('/api/projects/:id/git/branches/:name', async (req, res) => {
+  try {
+    const gm = new GitManager(pm.getProjectDir(req.params.id));
+    await gm.deleteBranch(req.params.name);
+    res.status(204).end();
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // ── ECU Parameters ────────────────────────────────────────────────────────────
 
 app.get('/api/ecu/:ecu/parameters', async (req, res) => {
