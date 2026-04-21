@@ -66,6 +66,10 @@ export class HexEditor {
     this.scroller.addEventListener('scroll', () => this._onScroll());
     this.evLayer.addEventListener('mousedown', (e) => this._onClick(e));
     this.evLayer.addEventListener('keydown', (e) => this._onKey(e));
+    this.evLayer.addEventListener('wheel', (e) => {
+      this.scroller.scrollTop += e.deltaY;
+      e.preventDefault();
+    }, { passive: false });
 
     const ro = new ResizeObserver(() => this._resize());
     ro.observe(this.wrap);
