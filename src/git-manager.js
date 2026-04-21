@@ -112,6 +112,10 @@ class GitManager {
     await this.git.deleteLocalBranch(name, true);
   }
 
+  async readFileAtCommit(hash, file = 'rom.bin') {
+    return this._showBinary(hash, file);
+  }
+
   async _showBinary(hash, file) {
     try {
       const { stdout } = await execFileAsync('git', ['show', `${hash}:${file}`], {

@@ -9,6 +9,7 @@ const A2lParser = require('./src/a2l-parser');
 const WinolsParser = require('./src/winols-parser');
 const { applyPctToMap, readValue, writeValue } = require('./src/rom-patcher');
 const { getEcu, listEcus } = require('./src/ecu-catalog');
+const { mapsChanged } = require('./src/map-differ');
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 32 * 1024 * 1024 } });
@@ -163,6 +164,60 @@ app.post('/api/projects/:id/git/restore/:hash', async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+// Map-level diff: what A2L characteristics differ between a commit and its parent.
+app.get('/api/projects/:id/git/diff-maps/:hash', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+
+    const gm = new GitManager(pm.getProjectDir(proj.id));
+    const log = await gm.log();
+    const idx = log.findIndex(c => c.hash === req.params.hash);
+    if (idx === -1) return res.status(404).json({ error: 'commit not found' });
+
+    const parentHash = log[idx + 1]?.hash;
+    if (!parentHash) return res.json({ hash: req.params.hash, isFirst: true, maps: [] });
+
+    const [curBuf, parentBuf] = await Promise.all([
+      gm.readFileAtCommit(req.params.hash),
+      gm.readFileAtCommit(parentHash)
+    ]);
+
+    const a2l = await getA2l(proj.ecu);
+    if (!a2l) return res.json({ hash: req.params.hash, parentHash, maps: [], error: 'No A2L for this ECU' });
+
+    const { maps, intervals } = mapsChanged(parentBuf, curBuf, a2l.characteristics);
+    res.json({ hash: req.params.hash, parentHash, maps, intervalCount: intervals.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// What maps differ between HEAD and the working-tree rom.bin (used for auto-generated commit messages).
+app.get('/api/projects/:id/git/diff-maps-head', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.json({ maps: [] });
+
+    const gm = new GitManager(pm.getProjectDir(proj.id));
+    const log = await gm.log();
+    const headHash = log[0]?.hash;
+    if (!headHash) return res.json({ maps: [] });
+
+    const headBuf = await gm.readFileAtCommit(headHash);
+    const curBuf = fs.readFileSync(pm.getRomPath(proj.id));
+
+    const a2l = await getA2l(proj.ecu);
+    if (!a2l) return res.json({ maps: [], error: 'No A2L for this ECU' });
+
+    const { maps } = mapsChanged(headBuf, curBuf, a2l.characteristics);
+    res.json({ maps });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

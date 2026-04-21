@@ -1,24 +1,48 @@
 # open-car-reprog
 
-Logiciel open source de reprogrammation ECU, comparable à WinOLS, entièrement basé web.  
-Première cible : **Bosch EDC16C34** (PSA 1.6 HDi 110cv — 206, 307, 308, Partner…)
+Logiciel open source de reprogrammation ECU, comparable à WinOLS, entièrement basé web.
+Première cible : **Bosch EDC16C34** (PSA 1.6 HDi 110cv — 206, 307, 308, Partner…), 12 autres ECUs
+déclarés dans le catalog (EDC17, ME7, MED17…).
 
-![dark theme hex editor](ressources/edc16c34/edc16c34%20schema.PNG)
+Stack : **Node.js / Express** (back) + **Vanilla ES modules** (front, zéro build step) + **git** par projet
+pour toute la partie versionnement / comparaison / variantes.
 
 ---
 
 ## Fonctionnalités
 
-- **Gestion de projets** — création, description, ECU associée
-- **Import ROM** — `.bin`, `.hex` (Intel HEX), `.ols` (WinOLS ZIP)
-- **Sauvegarde automatique de l'original** — le fichier `rom.original.bin` est créé à l'import et ne peut jamais être écrasé
-- **Éditeur hexadécimal** — canvas virtuel, défilement fluide sur 2 Mo, édition nibble par nibble au clavier
-- **6638 paramètres A2L** — parsés depuis le fichier DAMOS (`damos.a2l`) de l'EDC16C34, mis en cache JSON au premier démarrage
-- **Navigateur de paramètres** — recherche texte, filtre par type (VALUE / CURVE / MAP)
-- **Éditeur de cartographies** — tableau éditables + graphe Chart.js pour VALUE, CURVE et MAP 2D, avec conversion valeur brute ↔ valeur physique (factor/offset)
-- **Git interne par projet** — chaque modification peut être committée avec un message ; diff binaire byte-level, restauration à n'importe quel commit
-- **Import WinOLS** — détection automatique ZIP, Intel HEX, ou binaire brut
-- **Interface redimensionnable** — panneaux latéraux ajustables à la souris
+### ROM & éditeur
+- **Import** `.bin`, `.hex` (Intel HEX), `.ols` (WinOLS ZIP), binaire brut
+- **Backup original immuable** — `rom.original.bin` créé à l'import, jamais écrasé
+- **Éditeur hexadécimal canvas** — virtual scroll sur 2 Mo (131k lignes), édition nibble par nibble
+- **Éditeur de cartographies** — heatmap 2D, sélection cellule / plage / ligne / colonne, ajustements ±%
+- **6638 paramètres A2L** parsés depuis le DAMOS (cache JSON de 3,1 Mo généré au 1er démarrage)
+- **Navigateur de paramètres** — recherche texte, filtres VALUE / CURVE / MAP / VAL_BLK, scroll infini
+
+### Modifications automatiques (EDC16C34)
+- **Stage 1** — 5 cartes (accélérateur, couple, rail pressure, limiteur couple) avec % ajustable par carte
+- **Pop & Bang** — seuil RPM + quantité d'injection en overrun
+- **DPF/FAP OFF**, **EGR OFF**, **Swirl OFF**, **Speed limiter OFF** — recherche signature + patch en 1 clic
+
+### Git-powered workflow
+
+Le cœur du projet. Chaque projet est un repo git : historique, branches, restauration, diff sémantique.
+
+- **Branches git** (`⎇ master ▾` dans la toolbar) — dropdown avec création, switch, suppression.
+  Les changements non committés sont **auto-commités `WIP on <branche>`** avant de basculer →
+  aucun travail perdu en switchant entre variantes de tune.
+
+  ![branch switcher](docs/screenshots/branch-switcher.png)
+
+- **Diff map-level** — quand on clique un commit dans l'historique, le panneau ne montre plus
+  des octets bruts mais la **liste des cartes A2L modifiées**, avec type, nombre de cellules
+  changées, et un échantillon valeur avant → après :
+
+  ![diff map-level](docs/screenshots/diff-map-level.png)
+
+  Click sur une ligne → ouvre la carte dans l'éditeur + saute à son adresse dans l'hex editor.
+
+- **Restauration** — bouton `⟲ Restaurer` par commit pour revenir à n'importe quel état.
 
 ---
 
@@ -28,91 +52,137 @@ Première cible : **Bosch EDC16C34** (PSA 1.6 HDi 110cv — 206, 307, 308, Partn
 git clone https://github.com/Poisson48/open_car_reprog
 cd open_car_reprog
 npm install
-npm start
+node server.js           # production
+node --watch server.js   # dev (hot reload)
 ```
 
-Ouvrir **http://localhost:3000** dans le navigateur.
+→ **http://localhost:3000**
 
-> Node.js 18+ requis.
+> Node 18+ requis.
 
 ---
 
-## Utilisation rapide
+## Workflow type
 
-1. **Créer un projet** → cliquer sur `+ Nouveau projet`, renseigner le nom et choisir `EDC16C34`
-2. **Importer une ROM** → glisser-déposer le `.bin` sur la zone prévue (ou bouton `📂 Importer ROM`)
-3. **Explorer les paramètres** → panneau gauche, rechercher par nom ou description (`DPF`, `EGR`, `boost`…)
-4. **Cliquer un paramètre** → l'éditeur hex saute à l'adresse, le panneau bas affiche la cartographie
-5. **Modifier** → éditer dans le tableau de la carte ou directement dans l'hex (touches hex au clavier)
-6. **Sauvegarder** → `Ctrl+S` pour flusher les bytes sur le disque
-7. **Committer** → panneau droit, saisir un message et cliquer `💾 Commit modifications`
-8. **Historique** → cliquer un commit pour voir le diff ; bouton `⟲ Restaurer` pour revenir en arrière
+1. **Créer un projet** → nom + immatriculation + véhicule + choix ECU
+2. **Importer la ROM** → drag-n-drop sur le workspace
+3. **Explorer les paramètres** → sidebar gauche, filtrer par `DPF`, `EGR`, `boost`, nom de carte…
+4. **Tuner**
+   - soit à la main : click paramètre → éditeur de carte → sélection + `-5%` / `+10%`
+   - soit automatique : bouton `⚡ Auto-mods` → Stage 1, Pop & Bang, DPF OFF, etc.
+5. **Sauver & committer** → `Ctrl+S` pour patcher les octets, puis commit depuis le panneau git
+6. **Variantes de tune** → créer une branche `stage2` depuis la toolbar, essayer, comparer
+7. **Revenir en arrière** → click commit → `⟲ Restaurer`, ou switch de branche
 
 ---
 
 ## Architecture
 
 ```
-server.js                   Serveur Express (API REST)
+server.js                   Express REST API (API listée plus bas)
 src/
-  a2l-parser.js             Parser ASAP2/DAMOS (récursif, tokenizer regex)
-  project-manager.js        CRUD projets (filesystem)
-  git-manager.js            Git par projet (simple-git + execFile binaire)
-  winols-parser.js          Import WinOLS / Intel HEX / ZIP
+  ecu-catalog.js            13 ECUs déclarées (EDC16/EDC17/ME7/MED17)
+  a2l-parser.js             Parser ASAP2/DAMOS récursif → 6638 caractéristiques
+  project-manager.js        CRUD projets sur filesystem (projects/<uuid>/)
+  git-manager.js            Git par projet (branches, diff, restore, log, auto-commit WIP)
+  map-differ.js             Calcule quelles caractéristiques A2L diffèrent entre 2 buffers
+  rom-patcher.js            Patch map Kf_Xs16_Ys16_Ws16 (SWORD big-endian)
+  winols-parser.js          Import ZIP / Intel HEX / binaire brut
 public/
+  index.html                SPA shell
+  css/app.css               Dark VSCode-like theme
   js/
-    app.js                  Routeur SPA (#/  et  #/project/:id)
-    api.js                  Client fetch (wrapper REST)
-    views/
-      home.js               Vue liste de projets
-      project.js            Vue workspace (hex + params + git)
+    app.js                  Router hash
+    api.js                  Wrapper fetch REST
+    views/home.js           Grille projets
+    views/project.js        Workspace
     components/
-      hex-editor.js         Éditeur hex canvas, virtual scroll
-      param-panel.js        Navigateur paramètres A2L
-      map-editor.js         Éditeur VALUE / CURVE / MAP + Chart.js
-      git-panel.js          Historique git, diff, restauration
-projects/                   Données runtime (gitignorées)
+      hex-editor.js         Canvas + virtual scroll
+      map-editor.js         Heatmap + édition
+      param-panel.js        Sidebar paramètres A2L
+      git-panel.js          Historique + diff map-level + restore
+      branch-switcher.js    Dropdown branches
+      auto-mods.js          Stage 1 / Pop&Bang / DPF / EGR / …
 ressources/
   edc16c34/
-    damos.a2l               Fichier DAMOS complet EDC16C34 (~440k lignes)
-    ori.BIN                 ROM originale de référence (2 Mo)
+    damos.a2l               Fichier DAMOS Bosch EDC16C34 (440k lignes)
+    damos.cache.json        Cache parser (3,1 Mo, gitignored)
+tests/
+  branch-switcher.test.js   Test Playwright — branches
+  diff-map-level.test.js    Test Playwright — diff map-level
 ```
 
 ---
 
-## EDC16C34 — adresses utiles
+## API REST (résumé)
 
-| Paramètre | Adresse | Type | Notes |
-|-----------|---------|------|-------|
-| FAP/DPF switch | `0x1E9DD4` | 16-bit | `0x0000` = FAP OFF, `0x0101` = FAP ON |
-| EGR hystérésis | `0x1C4C4E` | — | Voir forum ecuconnections |
-| Boost max | chercher `boost` dans les paramètres | CURVE | — |
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/api/projects` | Lister |
+| POST | `/api/projects` | Créer |
+| GET/PATCH/DELETE | `/api/projects/:id` | CRUD |
+| POST | `/api/projects/:id/rom` | Importer ROM |
+| GET | `/api/projects/:id/rom` | Télécharger |
+| PATCH | `/api/projects/:id/rom/bytes` | Patcher octets (base64) |
+| POST | `/api/projects/:id/git/commit` | Commit |
+| GET | `/api/projects/:id/git/log` | Historique |
+| GET | `/api/projects/:id/git/diff/:hash` | Diff binaire (legacy) |
+| GET | `/api/projects/:id/git/diff-maps/:hash` | **Diff map-level** |
+| GET | `/api/projects/:id/git/diff-maps-head` | Diff HEAD vs working tree |
+| POST | `/api/projects/:id/git/restore/:hash` | Restaurer |
+| GET | `/api/projects/:id/git/branches` | Lister branches |
+| POST | `/api/projects/:id/git/branches` | Créer branche |
+| PUT | `/api/projects/:id/git/branches/:name` | Switch (auto-commit WIP) |
+| DELETE | `/api/projects/:id/git/branches/:name` | Supprimer |
+| GET | `/api/ecu` | Catalog ECU |
+| GET | `/api/ecu/:ecu/parameters` | Params A2L (search, type, offset, limit) |
+| GET | `/api/ecu/:ecu/parameters/:name` | Param détaillé |
+| POST | `/api/projects/:id/stage1` | Stage 1 auto |
+| POST | `/api/projects/:id/popbang` | Pop & Bang |
 
-Séquence FAP OFF binaire (rechercher dans l'hex) :
+---
+
+## Format ROM — Kf_Xs16_Ys16_Ws16 (Bosch DAMOS)
+
+Layout à l'adresse `A` (SWORD big-endian) :
+
 ```
-FAP ON  : 7F 00 00 00 00 00 00 00 00 02 01 01 00 0C 3B 0D 03
-FAP OFF : 7F 00 00 00 00 00 00 00 00 02 00 00 00 0C 3B 0D 03
+A+0              : nx (nb points axe X)
+A+2              : ny (nb points axe Y)
+A+4              : axe X [nx × SWORD]
+A+4+nx*2         : axe Y [ny × SWORD]
+A+4+nx*2+ny*2    : données [nx × ny × SWORD]
 ```
+
+---
+
+## Tests automatisés
+
+```bash
+node server.js &            # ou PORT=3001 pour éviter les conflits
+node tests/branch-switcher.test.js
+node tests/diff-map-level.test.js
+```
+
+Chaque test Playwright génère des screenshots dans `tests/screenshots/` (gitignorés).
 
 ---
 
 ## Calculateurs supportés
 
-| ECU | Véhicule | A2L disponible |
-|-----|----------|----------------|
-| EDC16C34 | PSA 1.6 HDi 110cv (206, 307, 308, Partner) | ✅ |
-
-> Contributions bienvenues pour d'autres calculateurs — ajouter le fichier `.a2l` dans `ressources/<ecu>/` et déclarer l'ECU dans `server.js`.
+| ECU | Véhicule | A2L | Stage 1 | Pop&Bang |
+|-----|----------|-----|---------|----------|
+| EDC16C34 | PSA 1.6 HDi 110cv | ✅ | ✅ | ✅ |
+| EDC17C46, EDC17CP44, ME7.x, MED17.x, … | 12 autres | déclarés dans catalog | à compléter | à compléter |
 
 ---
 
 ## Contribuer
 
-Pull requests bienvenues. Pour ajouter un calculateur :
-
-1. Ajouter `ressources/<nom_ecu>/damos.a2l`
-2. Déclarer l'entrée dans `ECU_A2L` dans `server.js`
-3. Ajouter l'option dans le `<select>` de `public/index.html`
+Pour ajouter un ECU :
+1. Poser le `.a2l` dans `ressources/<nom>/damos.a2l`
+2. Renseigner l'entrée dans `src/ecu-catalog.js` (`stage1Maps`, `popbangParams`, `autoModPatterns`)
+3. Tester via l'UI
 
 ---
 

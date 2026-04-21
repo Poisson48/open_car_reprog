@@ -256,6 +256,27 @@ export async function renderProject(container, { projectId, onBack }) {
     projectId,
     onRestore: async () => {
       if (project.hasRom) await loadRom();
+    },
+    onMapClick: async (name) => {
+      try {
+        const full = await api.getParam(project.ecu, name);
+        if (mapEditor && romData) mapEditor.show(full, romData);
+        if (hexEditor) {
+          const sz = full.byteSize || 2;
+          const xPts = full.axisDefs?.[0]?.maxAxisPoints || 1;
+          const yPts = full.axisDefs?.[1]?.maxAxisPoints || 1;
+          hexEditor.scrollToOffset(full.address);
+          hexEditor.setHighlights([{
+            start: full.address,
+            end: full.address + 4 + xPts * 2 + yPts * 2 + xPts * yPts * sz,
+            color: 'rgba(83,52,131,0.6)',
+            label: full.name
+          }]);
+        }
+        setStatus(`Ouvert depuis le diff git : ${name} | 0x${full.address.toString(16).toUpperCase()}`);
+      } catch (e) {
+        setStatus(`Erreur chargement ${name}: ${e.message}`);
+      }
     }
   });
 
