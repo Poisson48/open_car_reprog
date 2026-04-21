@@ -154,12 +154,15 @@ Playwright est installé (devDep). Chaque feature a un test `tests/<feature>.tes
 
 Lancer : `node tests/<name>.test.js` (serveur sur 3001).
 
+## Checksums — hors scope
+
+L'utilisateur flashe via **MPPS** qui recalcule les checksums (simples + signatures crypto) au
+moment du flash. Idem KESS / Galletto / CMD / bitbox. L'éditeur produit un `.bin` modifié, le
+tool de flashing sanitise au flash. **Ne pas implémenter de checksum verify/fix dans l'app.**
+Script `tests/scripts/analyze-checksums.js` gardé en référence forensic.
+
 ## Points à améliorer / bugs connus
 
-- Checksums EDC16C34 : analyse offline dans `tests/scripts/analyze-checksums.js` montre que les
-  zones hors calibration contiennent des signatures cryptographiques (MAC/RSA) regénérées par le
-  flasher, pas des sommes triviales. L'algo exact reste à reverser. La feature "compare vs stock"
-  via la map compare view mitige déjà le problème pour la lecture.
 - Les ECUs autres qu'edc16c34 n'ont pas d'adresses Stage 1 / pop&bang (à compléter)
 - Pas encore de déploiement serveur (hébergement mutualisé OVH incompatible Node.js,
   VPS prévu ultérieurement sur fish-technics.fr)
