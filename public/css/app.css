@@ -756,3 +756,14 @@ table.map-table td.modified input { color: var(--modified); }
   font-size: 11px;
 }
 .map-compare-note code { color: var(--accent2); font-family: 'Consolas', monospace; }
+
+.map-layout-warn {
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: #3a2a1a;
+  border: 1px solid var(--warn);
+  border-radius: 3px;
+  color: var(--warn);
+  font-size: 10px;
+  cursor: help;
+}

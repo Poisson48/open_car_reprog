@@ -120,6 +120,16 @@ export class MapEditor {
     if (this._chart) { this._chart.destroy(); this._chart = null; }
   }
 
+  _showLayoutWarning(addr, rawX, rawY, declX, declY) {
+    const toolbar = this.el.querySelector('.map-toolbar');
+    if (!toolbar || toolbar.querySelector('.map-layout-warn')) return;
+    const w = document.createElement('span');
+    w.className = 'map-layout-warn';
+    w.title = `En-tête nx/ny illisible à 0x${addr.toString(16).toUpperCase()} (lu nx=${rawX}, ny=${rawY}). Affichage avec les dimensions A2L ${declX}×${declY}.`;
+    w.textContent = `⚠ Layout`;
+    toolbar.appendChild(w);
+  }
+
   _applyCompareOverlay() {
     if (!this.compareRom) return;
     const p = this.param;
@@ -403,27 +413,49 @@ export class MapEditor {
     const xSz = DATA_SIZES[xDT] || 2;
     const ySz = DATA_SIZES[yDT] || 2;
 
-    // For STD_AXIS with Kf_Xs16_Ys16_Ws16 layout, read actual nx/ny from ROM header
-    let xCount, yCount;
-    const isStdAxis = axisX.attribute === 'STD_AXIS' && axisY.attribute === 'STD_AXIS';
-    if (isStdAxis) {
-      const view = new DataView(this.romData.buffer ?? this.romData);
-      xCount = view.getInt16(p.address, false);
-      yCount = view.getInt16(p.address + 2, false);
-      if (xCount <= 0 || yCount <= 0 || xCount > 512 || yCount > 512) {
-        this.el.querySelector('#map-table-wrap').innerHTML =
-          `<div class="empty-state">Données invalides en ROM (nx=${xCount}, ny=${yCount}) — adresse 0x${p.address.toString(16).toUpperCase()}<br>Cette MAP n'est pas présente dans ce dump ROM.</div>`;
-        return;
+    // Determine nx/ny from the record layout. Layouts like Kf_Xs16_Ys16_Ws16
+    // store NO_AXIS_PTS_X/Y inline as a header; other layouts keep axis counts
+    // fixed via AXIS_DESCR.maxAxisPoints. Fall back to AXIS_DESCR if inline
+    // header reads nonsense (e.g. a different firmware lays the map elsewhere).
+    const rl = p._recordLayout || {};
+    const hasInlineNx = !!rl.noAxisPtsX;
+    const hasInlineNy = !!rl.noAxisPtsY;
+    const view = new DataView(this.romData.buffer ?? this.romData);
+
+    const headerSize = (hasInlineNx ? 2 : 0) + (hasInlineNy ? 2 : 0);
+    const posNx = 0;
+    const posNy = hasInlineNx ? 2 : 0;
+
+    const declaredX = Math.min(axisX.maxAxisPoints || 8, 512);
+    const declaredY = Math.min(axisY.maxAxisPoints || 8, 512);
+
+    let xCount = declaredX, yCount = declaredY, usedInline = false;
+    if (hasInlineNx || hasInlineNy) {
+      const rawX = hasInlineNx ? view.getInt16(p.address + posNx, false) : declaredX;
+      const rawY = hasInlineNy ? view.getInt16(p.address + posNy, false) : declaredY;
+      const plausible = (v, max) => v > 0 && v <= Math.max(max, 32);
+      if (plausible(rawX, declaredX) && plausible(rawY, declaredY)) {
+        xCount = rawX;
+        yCount = rawY;
+        usedInline = true;
+      } else {
+        // Header is nonsense → the ROM likely doesn't store this map at the A2L
+        // address (different firmware version / base offset). Fall back silently
+        // to the declared max sizes and show a warning banner.
+        this._showLayoutWarning(p.address, rawX, rawY, declaredX, declaredY);
       }
-    } else {
-      xCount = Math.min(axisX.maxAxisPoints || 8, 512);
-      yCount = Math.min(axisY.maxAxisPoints || 8, 512);
     }
 
-    // xAddr starts after the nx/ny header (4 bytes) for STD_AXIS
-    let xAddr = axisX.attribute === 'COM_AXIS' && axisX.address ? axisX.address : p.address + (isStdAxis ? 4 : 0);
-    let yAddr = axisY.attribute === 'COM_AXIS' && axisY.address ? axisY.address : xAddr + xCount * xSz;
-    let dataAddr = isStdAxis ? xAddr + xCount * xSz + yCount * ySz : p.address;
+    // xAddr starts after the inline nx/ny header for STD_AXIS with inline layout.
+    const xAddr = axisX.attribute === 'COM_AXIS' && axisX.address
+      ? axisX.address
+      : p.address + (usedInline ? headerSize : 0);
+    const yAddr = axisY.attribute === 'COM_AXIS' && axisY.address
+      ? axisY.address
+      : xAddr + xCount * xSz;
+    const dataAddr = (axisX.attribute === 'COM_AXIS' || axisY.attribute === 'COM_AXIS')
+      ? p.address
+      : xAddr + xCount * xSz + yCount * ySz;
 
     this._dataAddr = dataAddr;
     this._xCount = xCount;

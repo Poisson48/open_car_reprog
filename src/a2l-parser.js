@@ -89,13 +89,14 @@ class A2lParser {
     };
 
     const parseAxisDescr = () => {
+      // ASAP2 order: Attribute InputQuantity Conversion MaxAxisPoints LowerLimit UpperLimit
       const descr = {
         attribute: val(),       // STD_AXIS | COM_AXIS | FIX_AXIS | RES_AXIS | CURVE_AXIS
         inputQuantity: val(),   // measurement name or NO_INPUT_QUANTITY
-        recordLayout: val(),
-        maxDiff: numVal(),
-        conversion: val(),
-        maxAxisPoints: numVal()
+        conversion: val(),      // compu method name
+        maxAxisPoints: numVal(),
+        lowerLimit: numVal(),
+        upperLimit: numVal()
       };
 
       while (i < n) {
@@ -357,14 +358,24 @@ class A2lParser {
         }
       }
 
-      // Resolve axes for CURVE/MAP
-      for (const axis of (c.axisDefs || [])) {
-        const axisRl = recordLayouts[axis.recordLayout];
-        if (axisRl?.axisX) {
-          axis.dataType = axisRl.axisX.dataType;
-          axis.byteSize = DATA_TYPE_SIZE[axis.dataType] || 2;
+      // Resolve axes for CURVE/MAP — axis dataType comes from the parent
+      // record layout's AXIS_PTS_X/Y slot (STD_AXIS) or from the referenced
+      // AXIS_PTS entity (COM_AXIS), NOT from AXIS_DESCR (which doesn't carry it).
+      const parentRl = recordLayouts[c.recordLayout];
+      c.axisDefs.forEach((axis, axIdx) => {
+        if (axis.attribute === 'COM_AXIS' && axis.axisPtsRef) {
+          const ap = axisPts[axis.axisPtsRef];
+          if (ap) {
+            axis.address = ap.address;
+            // If the AXIS_DESCR didn't give a useful count (rare), take it from AXIS_PTS.
+            axis.maxAxisPoints = axis.maxAxisPoints || ap.maxAxisPoints;
+            const apRl = recordLayouts[ap.recordLayout];
+            axis.dataType = apRl?.axisX?.dataType || 'SWORD';
+            axis.byteSize = DATA_TYPE_SIZE[axis.dataType] || 2;
+          }
         } else {
-          axis.dataType = this._inferDataType(axis.recordLayout);
+          const slot = axIdx === 0 ? parentRl?.axisX : parentRl?.axisY;
+          axis.dataType = slot?.dataType || 'SWORD';
           axis.byteSize = DATA_TYPE_SIZE[axis.dataType] || 2;
         }
 
@@ -377,18 +388,7 @@ class A2lParser {
           }
           axis.unit = axisCm.unit;
         }
-
-        // Resolve COM_AXIS reference
-        if (axis.attribute === 'COM_AXIS' && axis.axisPtsRef) {
-          const ap = axisPts[axis.axisPtsRef];
-          if (ap) {
-            axis.address = ap.address;
-            axis.maxAxisPoints = ap.maxAxisPoints;
-            axis.apDataType = recordLayouts[ap.recordLayout]?.axisX?.dataType || axis.dataType;
-            axis.apByteSize = DATA_TYPE_SIZE[axis.apDataType] || 2;
-          }
-        }
-      }
+      });
     }
   }
 
