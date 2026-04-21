@@ -96,14 +96,127 @@ export class MapEditor {
   show(param, romData) {
     this.param = param;
     this.romData = romData;
+    this.compareRom = null;
+    this.compareLabel = null;
     this._selection.clear();
     this.el.classList.remove('hidden');
     this._render();
   }
 
+  showCompare(param, romData, compareRom, label) {
+    this.param = param;
+    this.romData = romData;
+    this.compareRom = compareRom;
+    this.compareLabel = label || 'autre version';
+    this._selection.clear();
+    this.el.classList.remove('hidden');
+    this._render();
+    // Apply delta overlay on top of the standard rendering
+    queueMicrotask(() => this._applyCompareOverlay());
+  }
+
   hide() {
     this.el.classList.add('hidden');
     if (this._chart) { this._chart.destroy(); this._chart = null; }
+  }
+
+  _applyCompareOverlay() {
+    if (!this.compareRom) return;
+    const p = this.param;
+    const toolbar = this.el.querySelector('.map-toolbar');
+    if (toolbar && !toolbar.querySelector('.map-compare-banner')) {
+      const banner = document.createElement('span');
+      banner.className = 'map-compare-banner';
+      banner.innerHTML = `📊 Comparaison vs <b>${this.compareLabel}</b> <a href="#" id="map-exit-compare">✕</a>`;
+      toolbar.appendChild(banner);
+      banner.querySelector('#map-exit-compare').addEventListener('click', (e) => {
+        e.preventDefault();
+        this.show(p, this.romData);
+      });
+    }
+    if (p.type === 'MAP') this._overlayMapDeltas();
+    else if (p.type === 'CURVE') this._overlayCurveDeltas();
+    else if (p.type === 'VALUE') this._overlayValueDelta();
+  }
+
+  _overlayMapDeltas() {
+    const p = this.param;
+    const bigEndian = p.byteOrder !== 'LITTLE_ENDIAN';
+    const table = this.el.querySelector('#map-grid-table');
+    if (!table || !this.compareRom) return;
+
+    const nx = readValue(this.romData, p.address, 'SWORD', bigEndian);
+    const ny = readValue(this.romData, p.address + 2, 'SWORD', bigEndian);
+    if (nx <= 0 || ny <= 0 || nx > 256 || ny > 256) return;
+
+    const axisX = p.axisDefs?.[0];
+    const axisY = p.axisDefs?.[1];
+    const axisSz = axisX?.byteSize || 2;
+    const yAxisSz = axisY?.byteSize || 2;
+    const valSz = p.byteSize || 2;
+    const valDT = p.dataType || 'SWORD';
+    const dataOff = p.address + 4 + nx * axisSz + ny * yAxisSz;
+
+    table.querySelectorAll('input[data-xi]').forEach(inp => {
+      const xi = parseInt(inp.dataset.xi);
+      const yi = parseInt(inp.dataset.yi);
+      const cellAddr = dataOff + (yi * nx + xi) * valSz;
+      if (cellAddr + valSz > this.compareRom.length) return;
+      const rawOther = readValue(this.compareRom, cellAddr, valDT, bigEndian);
+      const physOther = toPhys(rawOther, p);
+      const physNow = parseFloat(inp.value);
+      const delta = physNow - physOther;
+      const td = inp.closest('td');
+      if (!td) return;
+      if (delta === 0) return;
+      const color = delta > 0 ? '#4ec9b0' : '#f44747';
+      td.style.boxShadow = `inset 0 0 0 2px ${color}`;
+      inp.title = `${this.compareLabel}: ${physOther.toFixed(2)} → actuel: ${physNow.toFixed(2)} (${delta > 0 ? '+' : ''}${delta.toFixed(2)})`;
+    });
+  }
+
+  _overlayCurveDeltas() {
+    const p = this.param;
+    const bigEndian = p.byteOrder !== 'LITTLE_ENDIAN';
+    const table = this.el.querySelector('#map-grid-table');
+    if (!table || !this.compareRom) return;
+    const axis = p.axisDefs?.[0];
+    if (!axis) return;
+
+    const valSz = p.byteSize || 2;
+    const valDT = p.dataType || 'SWORD';
+    const axisSz = axis.byteSize || 2;
+    const valCount = axis.maxAxisPoints || 16;
+    const dataAddr = axis.attribute === 'STD_AXIS' ? p.address + valCount * axisSz : p.address;
+
+    table.querySelectorAll('input[data-xi]').forEach(inp => {
+      const xi = parseInt(inp.dataset.xi);
+      const cellAddr = dataAddr + xi * valSz;
+      if (cellAddr + valSz > this.compareRom.length) return;
+      const rawOther = readValue(this.compareRom, cellAddr, valDT, bigEndian);
+      const physOther = toPhys(rawOther, p);
+      const physNow = parseFloat(inp.value);
+      const delta = physNow - physOther;
+      const td = inp.closest('td');
+      if (!td || delta === 0) return;
+      const color = delta > 0 ? '#4ec9b0' : '#f44747';
+      td.style.boxShadow = `inset 0 0 0 2px ${color}`;
+      inp.title = `${this.compareLabel}: ${physOther.toFixed(2)} → actuel: ${physNow.toFixed(2)} (${delta > 0 ? '+' : ''}${delta.toFixed(2)})`;
+    });
+  }
+
+  _overlayValueDelta() {
+    const p = this.param;
+    const bigEndian = p.byteOrder !== 'LITTLE_ENDIAN';
+    if (!this.compareRom) return;
+    const rawOther = readValue(this.compareRom, p.address, p.dataType || 'SWORD', bigEndian);
+    const physOther = toPhys(rawOther, p);
+    const info = this.el.querySelector('.map-table-wrap');
+    if (!info) return;
+    const note = document.createElement('div');
+    note.className = 'map-compare-note';
+    note.innerHTML = `<b>${this.compareLabel}</b> : <code>${rawOther}</code> (phys ${physOther.toFixed(3)})`;
+    info.appendChild(note);
   }
 
   _render() {

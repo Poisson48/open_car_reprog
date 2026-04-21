@@ -192,7 +192,7 @@ export class GitPanel {
     this.diffEl.querySelectorAll('.map-diff-row').forEach(row => {
       row.addEventListener('click', () => {
         const name = row.dataset.name;
-        if (this.onMapClick) this.onMapClick(name);
+        if (this.onMapClick) this.onMapClick(name, entry);
       });
     });
 

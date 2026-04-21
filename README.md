@@ -57,6 +57,13 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
 
   ![auto commit msg](docs/screenshots/auto-commit-msg.png)
 
+- **Compare view** — quand on clique une carte dans la liste du diff d'un commit,
+  l'éditeur s'ouvre en mode comparaison. Les cellules modifiées sont entourées
+  de **vert** (augmentées) ou **rouge** (diminuées) par rapport au commit parent.
+  Hover → tooltip `avant: 50 → actuel: 70 (+20)` :
+
+  ![map compare](docs/screenshots/map-compare.png)
+
 - **Restauration** — bouton `⟲ Restaurer` par commit pour revenir à n'importe quel état.
 
 ---
@@ -177,6 +184,9 @@ A+4+nx*2+ny*2    : données [nx × ny × SWORD]
 node server.js &            # ou PORT=3001 pour éviter les conflits
 node tests/branch-switcher.test.js
 node tests/diff-map-level.test.js
+node tests/auto-commit-msg.test.js
+node tests/git-graph.test.js
+node tests/map-compare.test.js
 ```
 
 Chaque test Playwright génère des screenshots dans `tests/screenshots/` (gitignorés).

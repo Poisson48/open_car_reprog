@@ -257,10 +257,26 @@ export async function renderProject(container, { projectId, onBack }) {
     onRestore: async () => {
       if (project.hasRom) await loadRom();
     },
-    onMapClick: async (name) => {
+    onMapClick: async (name, commit) => {
       try {
         const full = await api.getParam(project.ecu, name);
-        if (mapEditor && romData) mapEditor.show(full, romData);
+        let compareRom = null;
+        if (commit?.parents?.[0]) {
+          // Show deltas vs the PARENT of the clicked commit — i.e. what this
+          // commit changed on this map compared to its previous state.
+          try {
+            const parentBuf = await api.getRom(projectId, commit.parents[0]);
+            compareRom = new Uint8Array(parentBuf);
+          } catch {}
+        }
+        if (mapEditor && romData) {
+          if (compareRom) {
+            const label = commit.message.length > 40 ? commit.message.slice(0, 40) + '…' : commit.message;
+            mapEditor.showCompare(full, romData, compareRom, `avant "${label}"`);
+          } else {
+            mapEditor.show(full, romData);
+          }
+        }
         if (hexEditor) {
           const sz = full.byteSize || 2;
           const xPts = full.axisDefs?.[0]?.maxAxisPoints || 1;
@@ -273,7 +289,9 @@ export async function renderProject(container, { projectId, onBack }) {
             label: full.name
           }]);
         }
-        setStatus(`Ouvert depuis le diff git : ${name} | 0x${full.address.toString(16).toUpperCase()}`);
+        setStatus(compareRom
+          ? `Compare : ${name} vs parent de "${commit.message.slice(0, 30)}"`
+          : `Ouvert depuis le diff git : ${name} | 0x${full.address.toString(16).toUpperCase()}`);
       } catch (e) {
         setStatus(`Erreur chargement ${name}: ${e.message}`);
       }

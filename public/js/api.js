@@ -36,7 +36,7 @@ export const api = {
     fd.append('rom', file);
     return req('POST', `/api/projects/${id}/rom`, fd);
   },
-  getRom: (id) => req('GET', `/api/projects/${id}/rom`, undefined, true),
+  getRom: (id, commit) => req('GET', `/api/projects/${id}/rom${commit ? '?commit=' + encodeURIComponent(commit) : ''}`, undefined, true),
   patchBytes: (id, offset, bytes) => req('PATCH', `/api/projects/${id}/rom/bytes`, {
     offset,
     data: btoa(String.fromCharCode(...bytes))

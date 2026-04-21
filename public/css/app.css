@@ -736,3 +736,23 @@ table.map-table td.modified input { color: var(--modified); }
   font-size: 13px;
   min-width: 32px;
 }
+
+.map-compare-banner {
+  margin-left: auto;
+  padding: 3px 10px;
+  background: #1a2a3a;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--text-hi);
+  font-size: 11px;
+}
+.map-compare-banner a { color: var(--text-dim); margin-left: 8px; text-decoration: none; }
+.map-compare-banner a:hover { color: var(--danger); }
+.map-compare-note {
+  margin: 12px 16px;
+  padding: 8px 12px;
+  background: #1a2a3a;
+  border-left: 3px solid var(--accent);
+  font-size: 11px;
+}
+.map-compare-note code { color: var(--accent2); font-family: 'Consolas', monospace; }

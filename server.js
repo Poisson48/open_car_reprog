@@ -111,7 +111,18 @@ app.post('/api/projects/:id/rom', upload.single('rom'), async (req, res) => {
   }
 });
 
-app.get('/api/projects/:id/rom', (req, res) => {
+app.get('/api/projects/:id/rom', async (req, res) => {
+  if (req.query.commit) {
+    try {
+      const gm = new GitManager(pm.getProjectDir(req.params.id));
+      const buf = await gm.readFileAtCommit(req.query.commit);
+      if (!buf.length) return res.status(404).json({ error: 'No rom at commit' });
+      res.setHeader('Content-Type', 'application/octet-stream');
+      return res.end(buf);
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
   const p = pm.getRomPath(req.params.id);
   if (!p) return res.status(404).json({ error: 'No ROM' });
   res.setHeader('Content-Type', 'application/octet-stream');
