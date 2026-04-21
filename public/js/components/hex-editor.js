@@ -81,7 +81,7 @@ export class HexEditor {
     this.modified.clear();
     this.selectedOffset = -1;
     this._updateSizer();
-    this._render();
+    this._resize(); // re-measure after sizer gets full height (scrollbar may appear)
   }
 
   setHighlights(highlights) {
@@ -106,7 +106,8 @@ export class HexEditor {
   }
 
   _resize() {
-    const w = this.wrap.clientWidth;
+    const sbW = this.scroller.offsetWidth - this.scroller.clientWidth;
+    const w = this.wrap.clientWidth - sbW;
     const h = this.wrap.clientHeight;
     this.canvas.width = w;
     this.canvas.height = h;

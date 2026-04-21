@@ -14,6 +14,7 @@ async function req(method, url, body, isBlob = false) {
     throw new Error(err.error || r.statusText);
   }
   if (isBlob) return r.arrayBuffer();
+  if (r.status === 204 || r.headers.get('content-length') === '0') return null;
   return r.json();
 }
 

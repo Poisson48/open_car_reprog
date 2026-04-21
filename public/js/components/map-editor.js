@@ -250,8 +250,8 @@ export class MapEditor {
 
   _renderCurveTable(axisVals, dataVals, axis, p, bigEndian, dataAddr, valSz, valDT) {
     const wrap = this.el.querySelector('#map-table-wrap');
-    const min = Math.min(...dataVals);
-    const max = Math.max(...dataVals);
+    const min = dataVals.reduce((a, b) => a < b ? a : b, Infinity);
+    const max = dataVals.reduce((a, b) => a > b ? a : b, -Infinity);
     const range = max - min || 1;
 
     const axisRow = axisVals.map(v => `<th style="font-size:10px;color:var(--accent2)">${v.toFixed(1)}</th>`).join('');
@@ -289,12 +289,28 @@ export class MapEditor {
     const valSz = DATA_SIZES[valDT] || 2;
     const xSz = DATA_SIZES[xDT] || 2;
     const ySz = DATA_SIZES[yDT] || 2;
-    const xCount = axisX.maxAxisPoints || 8;
-    const yCount = axisY.maxAxisPoints || 8;
 
-    let xAddr = axisX.attribute === 'COM_AXIS' && axisX.address ? axisX.address : p.address;
+    // For STD_AXIS with Kf_Xs16_Ys16_Ws16 layout, read actual nx/ny from ROM header
+    let xCount, yCount;
+    const isStdAxis = axisX.attribute === 'STD_AXIS' && axisY.attribute === 'STD_AXIS';
+    if (isStdAxis) {
+      const view = new DataView(this.romData.buffer ?? this.romData);
+      xCount = view.getInt16(p.address, false);
+      yCount = view.getInt16(p.address + 2, false);
+      if (xCount <= 0 || yCount <= 0 || xCount > 512 || yCount > 512) {
+        this.el.querySelector('#map-table-wrap').innerHTML =
+          `<div class="empty-state">Données invalides en ROM (nx=${xCount}, ny=${yCount}) — adresse 0x${p.address.toString(16).toUpperCase()}<br>Cette MAP n'est pas présente dans ce dump ROM.</div>`;
+        return;
+      }
+    } else {
+      xCount = Math.min(axisX.maxAxisPoints || 8, 512);
+      yCount = Math.min(axisY.maxAxisPoints || 8, 512);
+    }
+
+    // xAddr starts after the nx/ny header (4 bytes) for STD_AXIS
+    let xAddr = axisX.attribute === 'COM_AXIS' && axisX.address ? axisX.address : p.address + (isStdAxis ? 4 : 0);
     let yAddr = axisY.attribute === 'COM_AXIS' && axisY.address ? axisY.address : xAddr + xCount * xSz;
-    let dataAddr = axisX.attribute === 'STD_AXIS' ? xAddr + xCount * xSz + yCount * ySz : p.address;
+    let dataAddr = isStdAxis ? xAddr + xCount * xSz + yCount * ySz : p.address;
 
     this._dataAddr = dataAddr;
     this._xCount = xCount;
@@ -322,8 +338,8 @@ export class MapEditor {
   _renderMapTable(xVals, yVals, grid, axisX, axisY, p, bigEndian, dataAddr, valSz, valDT) {
     const wrap = this.el.querySelector('#map-table-wrap');
     const allVals = grid.flat();
-    const min = Math.min(...allVals);
-    const max = Math.max(...allVals);
+    const min = allVals.reduce((a, b) => a < b ? a : b, Infinity);
+    const max = allVals.reduce((a, b) => a > b ? a : b, -Infinity);
     const range = max - min || 1;
 
     const xHeaders = xVals.map(v => `<th>${v.toFixed(1)}</th>`).join('');
@@ -505,7 +521,7 @@ export class MapEditor {
         if (row) {
           inp.value = row[xi].toFixed(2);
           const allVals = this._grid.flat();
-          const min = Math.min(...allVals), max = Math.max(...allVals);
+          const min = allVals.reduce((a, b) => a < b ? a : b, Infinity), max = allVals.reduce((a, b) => a > b ? a : b, -Infinity);
           const t = (row[xi] - min) / (max - min || 1);
           const td = inp.closest('td');
           if (td) {
@@ -531,13 +547,13 @@ export class MapEditor {
 
   _normalizedVal(v, grid) {
     const all = grid.flat();
-    const min = Math.min(...all), max = Math.max(...all);
+    const min = all.reduce((a, b) => a < b ? a : b, Infinity), max = all.reduce((a, b) => a > b ? a : b, -Infinity);
     return (v - min) / (max - min || 1);
   }
 
   _refreshHeatmapColors(wrap, grid) {
     const allVals = grid.flat();
-    const min = Math.min(...allVals), max = Math.max(...allVals);
+    const min = allVals.reduce((a, b) => a < b ? a : b, Infinity), max = allVals.reduce((a, b) => a > b ? a : b, -Infinity);
     const range = max - min || 1;
     wrap.querySelectorAll('input[data-xi]').forEach(inp => {
       const xi = parseInt(inp.dataset.xi), yi = parseInt(inp.dataset.yi);
@@ -565,7 +581,7 @@ export class MapEditor {
     if (!xCount || !yCount) return;
 
     const allVals = grid.flat();
-    const minV = Math.min(...allVals), maxV = Math.max(...allVals);
+    const minV = allVals.reduce((a, b) => a < b ? a : b, Infinity), maxV = allVals.reduce((a, b) => a > b ? a : b, -Infinity);
     const range = maxV - minV || 1;
 
     const LABEL_W = 36, LABEL_H = 18, LEGEND_W = 16;

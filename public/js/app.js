@@ -11,6 +11,7 @@ api.getVersion().then(({ version }) => {
 }).catch(() => {});
 
 function navigate(hash) {
+  history.replaceState(null, '', hash);
   const [, view, id] = hash.split('/');
   document.getElementById('breadcrumb').textContent = '';
 
@@ -26,9 +27,7 @@ function navigate(hash) {
   }
 }
 
-document.getElementById('btn-home').addEventListener('click', () => {
-  window.location.hash = '#/';
-});
+document.getElementById('btn-home').addEventListener('click', () => navigate('#/'));
 
 window.addEventListener('hashchange', () => navigate(window.location.hash));
 navigate(window.location.hash || '#/');
