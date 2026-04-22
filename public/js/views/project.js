@@ -267,18 +267,28 @@ export async function renderProject(container, { projectId, onBack }) {
       try {
         const full = await api.getParam(project.ecu, name);
         let compareRom = null;
-        if (commit?.parents?.[0]) {
+        let compareLabel = null;
+        if (commit?.compareFile) {
+          // "Comparer avec un fichier" mode: the reference ROM is the one the
+          // user just uploaded, kept in server memory under the project id.
+          try {
+            const otherBuf = await api.getCompareRom(projectId);
+            compareRom = new Uint8Array(otherBuf);
+            compareLabel = `fichier ${commit.fileName}`;
+          } catch {}
+        } else if (commit?.parents?.[0]) {
           // Show deltas vs the PARENT of the clicked commit — i.e. what this
           // commit changed on this map compared to its previous state.
           try {
             const parentBuf = await api.getRom(projectId, commit.parents[0]);
             compareRom = new Uint8Array(parentBuf);
+            const label = commit.message.length > 40 ? commit.message.slice(0, 40) + '…' : commit.message;
+            compareLabel = `avant "${label}"`;
           } catch {}
         }
         if (mapEditor && romData) {
           if (compareRom) {
-            const label = commit.message.length > 40 ? commit.message.slice(0, 40) + '…' : commit.message;
-            mapEditor.showCompare(full, romData, compareRom, `avant "${label}"`);
+            mapEditor.showCompare(full, romData, compareRom, compareLabel);
           } else {
             mapEditor.show(full, romData);
           }
@@ -296,7 +306,7 @@ export async function renderProject(container, { projectId, onBack }) {
           }]);
         }
         setStatus(compareRom
-          ? `Compare : ${name} vs parent de "${commit.message.slice(0, 30)}"`
+          ? `Compare : ${name} vs ${compareLabel}`
           : `Ouvert depuis le diff git : ${name} | 0x${full.address.toString(16).toUpperCase()}`);
       } catch (e) {
         setStatus(`Erreur chargement ${name}: ${e.message}`);

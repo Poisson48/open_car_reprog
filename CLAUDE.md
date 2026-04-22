@@ -77,6 +77,9 @@ docs/
 | GET | /api/projects/:id/git/diff/:hash | Diff binaire (legacy) |
 | GET | /api/projects/:id/git/diff-maps/:hash | **Diff map-level** : quelles caractéristiques A2L changent |
 | GET | /api/projects/:id/git/diff-maps-head | Diff HEAD vs working tree (utilisé par ✨ auto-message) |
+| POST | /api/projects/:id/compare-file | Upload d'un .bin de référence → liste des cartes qui diffèrent (buffer gardé en RAM) |
+| GET | /api/projects/:id/compare-file | Récupère le .bin de compare stocké (pour `mapEditor.showCompare`) |
+| DELETE | /api/projects/:id/compare-file | Libère le buffer de compare en RAM |
 | POST | /api/projects/:id/git/restore/:hash | Restaurer version |
 | GET/POST | /api/projects/:id/git/branches | Lister / créer |
 | PUT | /api/projects/:id/git/branches/:name | Switch (auto-commit WIP si dirty) |

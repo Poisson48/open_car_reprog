@@ -16,6 +16,11 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 32 
 
 const pm = new ProjectManager(path.join(__dirname, 'projects'));
 
+// Ephemeral compare-with-file buffers: one per project, kept in RAM only.
+// The UX is "upload a reference bin to diff against the current ROM" —
+// no need to persist or commit it, the user re-uploads if the server restarts.
+const compareBuffers = new Map(); // projectId -> { buffer, fileName, uploadedAt }
+
 // Build A2L path map from catalog
 const ECU_A2L = {};
 for (const ecu of listEcus()) {
@@ -98,6 +103,7 @@ app.patch('/api/projects/:id', async (req, res) => {
 });
 
 app.delete('/api/projects/:id', async (req, res) => {
+  compareBuffers.delete(req.params.id);
   await pm.delete(req.params.id);
   res.status(204).end();
 });
@@ -233,6 +239,54 @@ app.get('/api/projects/:id/git/diff-maps-head', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Compare-with-file: upload a reference bin and diff against current ROM ───
+
+app.post('/api/projects/:id/compare-file', upload.single('rom'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.status(400).json({ error: 'Project has no ROM to compare against' });
+
+    const currentBuf = fs.readFileSync(pm.getRomPath(proj.id));
+    const otherBuf = req.file.buffer;
+
+    compareBuffers.set(proj.id, {
+      buffer: otherBuf,
+      fileName: req.file.originalname,
+      uploadedAt: new Date().toISOString()
+    });
+
+    const a2l = await getA2l(proj.ecu);
+    if (!a2l) return res.json({ fileName: req.file.originalname, size: otherBuf.length, maps: [], error: 'No A2L for this ECU' });
+
+    // Diff direction: otherBuf = "parent/ori", currentBuf = "child/tune".
+    // This matches how mapsChanged computes deltas elsewhere (older → newer).
+    const { maps, intervals } = mapsChanged(otherBuf, currentBuf, a2l.characteristics);
+    res.json({
+      fileName: req.file.originalname,
+      size: otherBuf.length,
+      maps,
+      intervalCount: intervals.length
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/projects/:id/compare-file', (req, res) => {
+  const entry = compareBuffers.get(req.params.id);
+  if (!entry) return res.status(404).json({ error: 'No compare file uploaded' });
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.setHeader('X-Compare-Filename', entry.fileName);
+  res.end(entry.buffer);
+});
+
+app.delete('/api/projects/:id/compare-file', (req, res) => {
+  compareBuffers.delete(req.params.id);
+  res.json({ ok: true });
 });
 
 app.get('/api/projects/:id/git/branches', async (req, res) => {

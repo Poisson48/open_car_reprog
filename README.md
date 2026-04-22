@@ -75,6 +75,14 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
 
   ![map compare](docs/screenshots/map-compare.png)
 
+- **Comparer avec un fichier externe** — bouton `📁 Comparer avec un fichier…`
+  dans le panel Git : upload une seconde ROM (`.bin`/`.hex`) et voir instantanément
+  la liste des cartes A2L qui diffèrent entre la ROM du projet et la référence.
+  Click sur une carte → éditeur en mode compare, exactement comme pour un diff git.
+  Cas d'usage typique : un client envoie son `tune.bin`, on le compare à l'`ori.bin`.
+
+  ![compare avec un fichier](docs/screenshots/compare-file-editor.png)
+
 - **Restauration** — bouton `⟲ Restaurer` par commit pour revenir à n'importe quel état.
 
 ---

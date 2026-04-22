@@ -18,6 +18,11 @@ export class GitPanel {
         <span>Historique Git</span>
         <button class="btn btn-sm" id="git-refresh">↻</button>
       </div>
+      <div class="git-compare-area">
+        <button class="btn btn-sm" id="git-compare-btn" title="Comparer la ROM actuelle à un fichier externe (.bin)">📁 Comparer avec un fichier…</button>
+        <input type="file" id="git-compare-input" accept=".bin,.BIN,.hex,.HEX" style="display:none">
+        <div id="git-compare-status" class="git-compare-status" style="display:none"></div>
+      </div>
       <div class="git-commit-area">
         <div class="git-commit-input-row">
           <input type="text" id="git-commit-msg" placeholder="Message de commit…">
@@ -37,10 +42,63 @@ export class GitPanel {
     this.el.querySelector('#git-commit-btn').addEventListener('click', () => this._commit());
     this.el.querySelector('#git-suggest-btn').addEventListener('click', () => this._suggestMsg(true));
 
+    // Compare-with-file wiring
+    const cmpBtn = this.el.querySelector('#git-compare-btn');
+    const cmpInput = this.el.querySelector('#git-compare-input');
+    cmpBtn.addEventListener('click', () => cmpInput.click());
+    cmpInput.addEventListener('change', e => {
+      const f = e.target.files?.[0];
+      if (f) this._onCompareFile(f);
+      cmpInput.value = '';
+    });
+
     // Auto-suggest when user focuses an empty input
     this.msgEl.addEventListener('focus', () => {
       if (!this.msgEl.value.trim()) this._suggestMsg(false);
     });
+  }
+
+  async _onCompareFile(file) {
+    const status = this.el.querySelector('#git-compare-status');
+    status.style.display = '';
+    status.innerHTML = `<div class="spinner"></div> Analyse de ${file.name}…`;
+    try {
+      const fd = new FormData();
+      fd.append('rom', file);
+      const r = await fetch(`/api/projects/${this.projectId}/compare-file`, { method: 'POST', body: fd });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error || r.statusText);
+      }
+      const diff = await r.json();
+      this.compareFileName = diff.fileName;
+      status.innerHTML = `📁 <b>${diff.fileName}</b> <span style="color:var(--text-dim)">(${(diff.size / 1024).toFixed(0)} KB · ${diff.maps?.length || 0} cartes diffèrent)</span> <a href="#" id="git-compare-clear">✕</a>`;
+      status.querySelector('#git-compare-clear').addEventListener('click', e => {
+        e.preventDefault();
+        this._clearCompare();
+      });
+
+      // Deselect any commit and render the file-diff in the diff area
+      this.activeHash = null;
+      this.logEl.querySelectorAll('.git-entry').forEach(e => e.classList.remove('active'));
+      this.diffEl.style.display = '';
+      this._renderMapDiff(
+        { maps: diff.maps, error: diff.error },
+        { compareFile: true, fileName: diff.fileName, message: `fichier ${diff.fileName}` }
+      );
+    } catch (e) {
+      status.innerHTML = `<span style="color:var(--danger)">Erreur: ${e.message}</span>`;
+    }
+  }
+
+  async _clearCompare() {
+    try { await api.clearCompareFile(this.projectId); } catch {}
+    this.compareFileName = null;
+    const status = this.el.querySelector('#git-compare-status');
+    status.style.display = 'none';
+    status.innerHTML = '';
+    this.diffEl.style.display = 'none';
+    this.diffEl.innerHTML = '';
   }
 
   async _suggestMsg(force) {
@@ -157,9 +215,10 @@ export class GitPanel {
     }
 
     const total = diff.maps.length;
+    const isFileCompare = !!entry.compareFile;
     let html = `<div class="map-diff-header">
-      <span>${total} carte${total > 1 ? 's' : ''} modifiée${total > 1 ? 's' : ''}</span>
-      <button class="btn btn-sm btn-danger" id="git-restore-btn" title="Restaurer la ROM à cet état">⟲ Restaurer</button>
+      <span>${total} carte${total > 1 ? 's' : ''} ${isFileCompare ? `diffère${total > 1 ? 'nt' : ''} de ${entry.fileName}` : `modifiée${total > 1 ? 's' : ''}`}</span>
+      ${isFileCompare ? '' : '<button class="btn btn-sm btn-danger" id="git-restore-btn" title="Restaurer la ROM à cet état">⟲ Restaurer</button>'}
     </div>`;
 
     const shown = diff.maps.slice(0, 50);

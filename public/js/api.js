@@ -42,6 +42,15 @@ export const api = {
     data: btoa(String.fromCharCode(...bytes))
   }),
 
+  // Compare-with-file
+  uploadCompareFile: (id, file) => {
+    const fd = new FormData();
+    fd.append('rom', file);
+    return req('POST', `/api/projects/${id}/compare-file`, fd);
+  },
+  getCompareRom: (id) => req('GET', `/api/projects/${id}/compare-file`, undefined, true),
+  clearCompareFile: (id) => req('DELETE', `/api/projects/${id}/compare-file`),
+
   // WinOLS
   importWinols: (id, file) => {
     const fd = new FormData();

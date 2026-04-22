@@ -343,6 +343,25 @@ table.map-table td.modified input { color: var(--modified); }
 }
 .git-panel-header span { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; flex: 1; }
 
+.git-compare-area {
+  padding: 8px 8px 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.git-compare-area > .btn { width: 100%; margin-bottom: 6px; }
+.git-compare-status {
+  font-size: 11px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  background: var(--panel);
+  border: 1px solid var(--accent2);
+  border-radius: 2px;
+  color: var(--text);
+  word-break: break-all;
+}
+.git-compare-status a { color: var(--text-dim); margin-left: 6px; text-decoration: none; float: right; }
+.git-compare-status a:hover { color: var(--danger); }
+
 .git-commit-area {
   padding: 8px;
   border-bottom: 1px solid var(--border);
