@@ -85,6 +85,10 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
 
 - **Restauration** — bouton `⟲ Restaurer` par commit pour revenir à n'importe quel état.
 
+- **Undo / Redo** — `Ctrl-Z` défait la dernière édition (cellule ou lot `±%`), `Ctrl-Shift-Z` /
+  `Ctrl-Y` la refait. Un lot (ex : `+5%` sur 16 cellules) = une seule étape. La pile est vidée
+  à chaque rechargement de ROM (restore, switch de branche).
+
 ---
 
 ## Installation

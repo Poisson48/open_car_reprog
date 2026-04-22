@@ -83,6 +83,79 @@ export async function renderProject(container, { projectId, onBack }) {
   let mapEditor = null;
   let currentParam = null;
 
+  // Undo stack: each entry is an array of { offset, newBytes, prevBytes }.
+  // Edits that land in the same synchronous tick (e.g. ±% on a cell selection)
+  // are grouped into one entry so a single Ctrl-Z undoes the whole batch.
+  const undoStack = [];
+  let undoPointer = 0; // next-to-undo == stack length when no redo is pending
+  let editCollector = null;
+  const MAX_UNDO = 200;
+
+  function recordEdit(offset, newBytes, prevBytes) {
+    if (!editCollector) {
+      editCollector = [];
+      queueMicrotask(() => {
+        if (editCollector && editCollector.length) {
+          // Drop any forward history if the user was mid-redo
+          undoStack.length = undoPointer;
+          undoStack.push(editCollector);
+          if (undoStack.length > MAX_UNDO) undoStack.shift();
+          undoPointer = undoStack.length;
+        }
+        editCollector = null;
+      });
+    }
+    editCollector.push({ offset, newBytes: Array.from(newBytes), prevBytes: Array.from(prevBytes || []) });
+  }
+
+  function applyPatches(patches) {
+    // Write directly via hexEditor.patchBytes which also updates romData (shared
+    // buffer) and re-renders the hex view — and crucially fires no callback,
+    // so this does not re-enter the undo stack.
+    for (const p of patches) hexEditor.patchBytes(p.offset, p.bytes);
+    // If the map editor is currently showing a param whose memory range was
+    // touched, re-render it to reflect the new bytes.
+    if (mapEditor && currentParam && romData) {
+      const mapStart = currentParam.address;
+      const mapEnd = mapStart + estimateParamSize(currentParam);
+      const touches = patches.some(p => p.offset < mapEnd && (p.offset + p.bytes.length) > mapStart);
+      if (touches) mapEditor.show(currentParam, romData);
+    }
+  }
+
+  function undo() {
+    if (undoPointer === 0) return false;
+    undoPointer--;
+    const entry = undoStack[undoPointer];
+    applyPatches(entry.map(e => ({ offset: e.offset, bytes: e.prevBytes })));
+    setStatus(`↶ Undo (${entry.length} octet(s)) · ${undoPointer}/${undoStack.length}`);
+    return true;
+  }
+
+  function redo() {
+    if (undoPointer >= undoStack.length) return false;
+    const entry = undoStack[undoPointer];
+    undoPointer++;
+    applyPatches(entry.map(e => ({ offset: e.offset, bytes: e.newBytes })));
+    setStatus(`↷ Redo (${entry.length} octet(s)) · ${undoPointer}/${undoStack.length}`);
+    return true;
+  }
+
+  function resetUndo() {
+    undoStack.length = 0;
+    undoPointer = 0;
+    editCollector = null;
+  }
+
+  function estimateParamSize(p) {
+    const valSz = p.byteSize || 2;
+    if (p.type === 'VALUE') return valSz;
+    const xPts = p.axisDefs?.[0]?.maxAxisPoints || 1;
+    const yPts = p.axisDefs?.[1]?.maxAxisPoints || 1;
+    // Over-approximate: header + both axes + data grid.
+    return 4 + xPts * 2 + yPts * 2 + xPts * yPts * valSz;
+  }
+
   const setStatus = (msg) => {
     const sb = document.getElementById('status-bar');
     if (sb) sb.innerHTML = `<span>${msg}</span>`;
@@ -115,19 +188,24 @@ export async function renderProject(container, { projectId, onBack }) {
     hexEditor.load(buf);
     if (project.displayAddressBase) hexEditor.setDisplayBase(project.displayAddressBase);
 
-    hexEditor.onByteChange = (offset, value) => {
+    hexEditor.onByteChange = (offset, value, prev) => {
+      recordEdit(offset, [value], prev === undefined ? [] : [prev]);
       setStatus(`Modifié: 0x${offset.toString(16).toUpperCase()} = 0x${value.toString(16).toUpperCase().padStart(2, '0')} | ${hexEditor.modified.size} byte(s) non sauvegardé(s)`);
     };
 
     // Initialize map editor
     const mapPane = document.getElementById('map-editor-pane');
     mapEditor = new MapEditor(mapPane, {
-      onBytesChange: (offset, bytes) => {
+      onBytesChange: (offset, bytes, prevBytes) => {
         // Sync changes to hex editor
         hexEditor.patchBytes(offset, bytes);
+        recordEdit(offset, bytes, prevBytes || []);
         setStatus(`Carte modifiée à 0x${offset.toString(16).toUpperCase()} | ${hexEditor.modified.size} byte(s) non sauvegardé(s)`);
       }
     });
+
+    // Any ROM reload starts from a clean slate for undo.
+    resetUndo();
 
     // Re-wire file drop on hex area
     bindFileDrop(wrap);
@@ -232,7 +310,6 @@ export async function renderProject(container, { projectId, onBack }) {
   const paramPanel = new ParamPanel(document.getElementById('param-sidebar'), {
     ecu: project.ecu,
     onSelect: async (param) => {
-      currentParam = param;
       if (hexEditor) {
         const sz = param.byteSize || 2;
         hexEditor.scrollToOffset(param.address);
@@ -244,13 +321,19 @@ export async function renderProject(container, { projectId, onBack }) {
         }]);
       }
       if (mapEditor && romData) {
-        // Fetch full param details
+        // Fetch full param details (axisDefs, record layout) — the summary from
+        // the sidebar is not enough to render axes correctly, and undo/redo
+        // needs the full param to re-render after a revert.
         try {
           const full = await api.getParam(project.ecu, param.name);
+          currentParam = full;
           mapEditor.show(full, romData);
         } catch (e) {
+          currentParam = param;
           mapEditor.show(param, romData);
         }
+      } else {
+        currentParam = param;
       }
       setStatus(`Paramètre: ${param.name} | 0x${param.address.toString(16).toUpperCase()} | ${param.type} | ${param.dataType || ''} | ${param.unit || ''}`);
     }
@@ -266,6 +349,7 @@ export async function renderProject(container, { projectId, onBack }) {
     onMapClick: async (name, commit) => {
       try {
         const full = await api.getParam(project.ecu, name);
+        currentParam = full;
         let compareRom = null;
         let compareLabel = null;
         if (commit?.compareFile) {
@@ -331,6 +415,26 @@ export async function renderProject(container, { projectId, onBack }) {
   // ── Commit shortcut ──────────────────────────────────────────────────────────
 
   document.addEventListener('keydown', async (e) => {
+    // Undo / redo at ROM level. If the focus is inside a map-cell <input>
+    // that still holds un-committed text, let the browser's native Ctrl-Z
+    // handle text editing — otherwise the ROM-level undo fires.
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+      const inInput = document.activeElement?.tagName === 'INPUT'
+        && document.activeElement?.dataset?.xi !== undefined;
+      if (inInput) return; // native undo on the input's text
+      if (!hexEditor) return;
+      e.preventDefault();
+      undo();
+      return;
+    }
+    if (ctrl && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) {
+      if (!hexEditor) return;
+      e.preventDefault();
+      redo();
+      return;
+    }
+
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
       if (!hexEditor || !hexEditor.modified.size) return;

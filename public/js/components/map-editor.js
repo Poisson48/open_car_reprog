@@ -344,8 +344,9 @@ export class MapEditor {
       const sz = DATA_SIZES[p.dataType] || 2;
       const bytes = new Uint8Array(sz);
       writeValue(bytes, 0, p.dataType || 'SWORD', bigEndian, v);
+      const prev = Array.from(this.romData.slice(p.address, p.address + sz));
       this.romData.set(bytes, p.address);
-      if (this.onBytesChange) this.onBytesChange(p.address, Array.from(bytes));
+      if (this.onBytesChange) this.onBytesChange(p.address, Array.from(bytes), prev);
       wrap.querySelector('#val-raw-hex').value = Math.round(v).toString(16).toUpperCase().padStart(4,'0');
       wrap.querySelector('#val-raw-dec').value = Math.round(v);
       wrap.querySelector('#val-phys').value = toPhys(v, p).toFixed(3);
@@ -708,8 +709,9 @@ export class MapEditor {
     const bytes = new Uint8Array(valSz);
     writeValue(bytes, 0, valDT, bigEndian, raw);
     const off = dataAddr + (yi * xCount + xi) * valSz;
+    const prev = Array.from(this.romData.slice(off, off + valSz));
     this.romData.set(bytes, off);
-    if (this.onBytesChange) this.onBytesChange(off, Array.from(bytes));
+    if (this.onBytesChange) this.onBytesChange(off, Array.from(bytes), prev);
   }
 
   _normalizedVal(v, grid) {

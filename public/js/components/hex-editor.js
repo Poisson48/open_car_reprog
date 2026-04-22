@@ -291,7 +291,8 @@ export class HexEditor {
 
   _editNibble(nibble) {
     const offset = this.selectedOffset;
-    let byte = this.data[offset];
+    const prev = this.data[offset];
+    let byte = prev;
     if (this.editNibble === 0) {
       byte = (nibble << 4) | (byte & 0x0F);
     } else {
@@ -299,7 +300,7 @@ export class HexEditor {
     }
     this.data[offset] = byte;
     this.modified.add(offset);
-    if (this.onByteChange) this.onByteChange(offset, byte);
+    if (this.onByteChange) this.onByteChange(offset, byte, prev);
 
     this.editNibble = 1 - this.editNibble;
     if (this.editNibble === 0) this._move(1);

@@ -38,7 +38,7 @@ public/
     api.js                  Fetch wrapper vers l'API REST
     views/
       home.js               Grille projets, recherche, modals new/edit (dont champ displayAddressBase)
-      project.js            Vue projet : toolbar, hex editor, map editor, git panel
+      project.js            Vue projet : toolbar, hex editor, map editor, git panel, pile undo/redo (Ctrl-Z / Ctrl-Shift-Z) au niveau du projet
     components/
       hex-editor.js         Canvas + virtual scroll (2MB = 131k lignes × 20px), displayBase pour décaler les adresses affichées
       map-editor.js         Heatmap canvas, sélection cellules, ±% adjustments, mode compare (deltas vert/rouge), vue 3D surface (yaw/pitch à la souris)
