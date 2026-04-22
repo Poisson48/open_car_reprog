@@ -1,0 +1,25 @@
+title: open-car-reprog
+description: Outil web open-source de reprogrammation ECU (EDC16/EDC17/ME7/MED17) — comparable à WinOLS, reposant sur git par projet.
+theme: jekyll-theme-cayman
+show_downloads: true
+google_analytics:
+lang: fr
+
+# Jekyll ignore the sources that are not part of the docs site.
+# (README.md + docs/ stay visible; everything else is hidden from the
+# generated site but remains in the repo.)
+exclude:
+  - server.js
+  - package.json
+  - package-lock.json
+  - node_modules
+  - src
+  - public
+  - tests
+  - ressources
+  - projects
+  - CLAUDE.md
+  - .gitignore
+  - Gemfile
+  - Gemfile.lock
+  - vendor
