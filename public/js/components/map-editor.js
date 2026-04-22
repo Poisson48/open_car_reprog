@@ -640,6 +640,60 @@ export class MapEditor {
     });
   }
 
+  // Copy / paste between selections (possibly across different maps).
+  //
+  // Returns { w, h, values } where `values` is an h×w array and cells not in
+  // the selection within the bounding box are `null` — so pasting into a
+  // selection larger than the source keeps the non-selected cells intact.
+  getSelectionValues() {
+    if (!this._selection.size || !this._grid) return null;
+    let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+    for (const key of this._selection) {
+      const [xi, yi] = key.split(',').map(Number);
+      if (xi < xMin) xMin = xi; if (xi > xMax) xMax = xi;
+      if (yi < yMin) yMin = yi; if (yi > yMax) yMax = yi;
+    }
+    const w = xMax - xMin + 1, h = yMax - yMin + 1;
+    const values = [];
+    for (let yi = yMin; yi <= yMax; yi++) {
+      const row = [];
+      for (let xi = xMin; xi <= xMax; xi++) {
+        const selected = this._selection.has(`${xi},${yi}`);
+        row.push(selected ? (this._grid[yi]?.[xi] ?? null) : null);
+      }
+      values.push(row);
+    }
+    return { w, h, values };
+  }
+
+  // Paste a clipboard block anchored at the top-left cell of the current
+  // selection. Cells beyond the grid are silently dropped. Returns the number
+  // of cells actually written.
+  pasteValues(clipboard) {
+    if (!this._selection.size || !this._grid || !clipboard) return 0;
+    let xMin = Infinity, yMin = Infinity;
+    for (const key of this._selection) {
+      const [xi, yi] = key.split(',').map(Number);
+      if (xi < xMin) xMin = xi;
+      if (yi < yMin) yMin = yi;
+    }
+    const { w, h, values } = clipboard;
+    const changed = [];
+    for (let dy = 0; dy < h; dy++) {
+      for (let dx = 0; dx < w; dx++) {
+        const xi = xMin + dx, yi = yMin + dy;
+        if (xi >= this._xCount || yi >= this._yCount) continue;
+        const v = values[dy]?.[dx];
+        if (v === null || v === undefined) continue;
+        const row = this._grid[yi] || this._grid[0];
+        row[xi] = v;
+        changed.push({ xi, yi, phys: v });
+      }
+    }
+    if (changed.length) this._flushChanges(changed);
+    return changed.length;
+  }
+
   _applyPct(pct) {
     if (!this._selection.size || !this._grid) return;
     const factor = 1 + pct / 100;

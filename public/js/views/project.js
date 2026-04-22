@@ -91,6 +91,9 @@ export async function renderProject(container, { projectId, onBack }) {
   let editCollector = null;
   const MAX_UNDO = 200;
 
+  // In-memory clipboard for map-to-map copy/paste (survives map switches).
+  let mapClipboard = null;
+
   function recordEdit(offset, newBytes, prevBytes) {
     if (!editCollector) {
       editCollector = [];
@@ -432,6 +435,28 @@ export async function renderProject(container, { projectId, onBack }) {
       if (!hexEditor) return;
       e.preventDefault();
       redo();
+      return;
+    }
+
+    // Copy / paste of map selections (even across maps). If the map editor
+    // has a live cell selection we always hijack Ctrl-C/V, even when focus is
+    // inside a cell input — the user's intent after selecting cells is clearly
+    // to copy the values, not the text inside the last-clicked input.
+    if (ctrl && !e.shiftKey && (e.key === 'c' || e.key === 'C')) {
+      const clip = mapEditor?.getSelectionValues?.();
+      if (!clip) return;
+      mapClipboard = clip;
+      e.preventDefault();
+      setStatus(`📋 Copié : ${clip.w}×${clip.h} cellule(s)`);
+      return;
+    }
+    if (ctrl && !e.shiftKey && (e.key === 'v' || e.key === 'V')) {
+      if (!mapEditor?.pasteValues || !mapClipboard) return;
+      if (!mapEditor.getSelectionValues?.()) return; // needs a target selection
+      e.preventDefault();
+      const n = mapEditor.pasteValues(mapClipboard);
+      if (n > 0) setStatus(`📋 Collé : ${n} cellule(s) depuis ${mapClipboard.w}×${mapClipboard.h}`);
+      else setStatus('📋 Rien à coller : sélectionnez au moins une cellule dans la carte cible');
       return;
     }
 

@@ -89,6 +89,12 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
   `Ctrl-Y` la refait. Un lot (ex : `+5%` sur 16 cellules) = une seule étape. La pile est vidée
   à chaque rechargement de ROM (restore, switch de branche).
 
+- **Copier / coller entre cartes** — `Ctrl-C` copie les valeurs physiques de la sélection
+  courante (rectangle englobant avec "trous" respectés), `Ctrl-V` colle dans la sélection de
+  la carte cible (ancrée sur le coin haut-gauche). Marche entre deux cartes différentes :
+  sélection dans la carte A, `Ctrl-C`, ouvrir la carte B, sélectionner la zone cible, `Ctrl-V`.
+  Le collage est une opération atomique → un seul `Ctrl-Z` pour tout annuler.
+
 ---
 
 ## Installation
