@@ -307,6 +307,67 @@ app.delete('/api/projects/:id/compare-file', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Multi-ROM slots ───────────────────────────────────────────────────────────
+// Each project can hold N reference ROMs (customer dumps, other tuners'
+// versions). They live in roms/ inside the project dir and are NOT committed
+// (a per-project .gitignore is seeded on first use). Slots are read-only
+// references; the active/editable ROM remains rom.bin.
+
+app.get('/api/projects/:id/roms', async (req, res) => {
+  const proj = await pm.get(req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Project not found' });
+  res.json(pm.listRomSlots(proj.id));
+});
+
+app.post('/api/projects/:id/roms', upload.single('rom'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    const name = req.body?.name || req.file.originalname;
+    const slot = pm.addRomSlot(proj.id, req.file.buffer, name);
+    res.status(201).json({ ...slot, originalName: req.file.originalname });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.delete('/api/projects/:id/roms/:slug', async (req, res) => {
+  const proj = await pm.get(req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Project not found' });
+  pm.deleteRomSlot(proj.id, req.params.slug);
+  res.json({ ok: true });
+});
+
+// Load a stored slot as the compare-file reference — reuses the same buffer
+// lookup that POST /compare-file populates, so the existing compare UI works
+// unchanged.
+app.post('/api/projects/:id/compare-file-from-slot/:slug', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.status(400).json({ error: 'Project has no ROM to compare against' });
+    const slotPath = pm.getRomSlotPath(proj.id, req.params.slug);
+    if (!slotPath) return res.status(404).json({ error: 'Slot not found' });
+
+    const otherBuf = fs.readFileSync(slotPath);
+    const currentBuf = fs.readFileSync(pm.getRomPath(proj.id));
+    compareBuffers.set(proj.id, {
+      buffer: otherBuf,
+      fileName: req.params.slug + '.bin',
+      uploadedAt: new Date().toISOString()
+    });
+
+    const a2l = await getA2lForProject(proj);
+    if (!a2l) return res.json({ fileName: req.params.slug + '.bin', size: otherBuf.length, maps: [] });
+
+    const { maps, intervals } = mapsChanged(otherBuf, currentBuf, a2l.characteristics);
+    res.json({ fileName: req.params.slug + '.bin', size: otherBuf.length, maps, intervalCount: intervals.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Per-map notes (stored in meta.mapNotes) ───────────────────────────────────
 
 app.get('/api/projects/:id/notes', async (req, res) => {

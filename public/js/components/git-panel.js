@@ -23,6 +23,14 @@ export class GitPanel {
         <input type="file" id="git-compare-input" accept=".bin,.BIN,.hex,.HEX" style="display:none">
         <div id="git-compare-status" class="git-compare-status" style="display:none"></div>
       </div>
+      <div class="git-slots-area">
+        <div class="git-slots-head">
+          <span>ROMs du projet</span>
+          <button class="btn btn-sm" id="git-slot-add" title="Ajouter une ROM de référence au projet">+ Ajouter</button>
+          <input type="file" id="git-slot-input" accept=".bin,.BIN,.hex,.HEX" style="display:none">
+        </div>
+        <div class="git-slots-list" id="git-slots-list"></div>
+      </div>
       <div class="git-commit-area">
         <div class="git-commit-input-row">
           <input type="text" id="git-commit-msg" placeholder="Message de commit…">
@@ -51,6 +59,23 @@ export class GitPanel {
       if (f) this._onCompareFile(f);
       cmpInput.value = '';
     });
+
+    // Multi-ROM slots wiring
+    const slotBtn = this.el.querySelector('#git-slot-add');
+    const slotInput = this.el.querySelector('#git-slot-input');
+    slotBtn.addEventListener('click', () => slotInput.click());
+    slotInput.addEventListener('change', async e => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      try {
+        await api.addRomSlot(this.projectId, f, f.name);
+        await this._refreshSlots();
+      } catch (err) {
+        alert('Ajout ROM échoué : ' + err.message);
+      }
+      slotInput.value = '';
+    });
+    this._refreshSlots();
 
     // Auto-suggest when user focuses an empty input
     this.msgEl.addEventListener('focus', () => {
@@ -85,6 +110,62 @@ export class GitPanel {
       this._renderMapDiff(
         { maps: diff.maps, error: diff.error },
         { compareFile: true, fileName: diff.fileName, message: `fichier ${diff.fileName}` }
+      );
+    } catch (e) {
+      status.innerHTML = `<span style="color:var(--danger)">Erreur: ${e.message}</span>`;
+    }
+  }
+
+  async _refreshSlots() {
+    const listEl = this.el.querySelector('#git-slots-list');
+    if (!listEl) return;
+    let slots = [];
+    try { slots = await api.listRomSlots(this.projectId); } catch {}
+    if (!slots.length) {
+      listEl.innerHTML = `<div class="git-slots-empty">Aucune ROM stockée. Cliquez "+ Ajouter" pour en mettre une en référence.</div>`;
+      return;
+    }
+    listEl.innerHTML = slots.map(s => `
+      <div class="git-slot-row" data-slug="${s.slug}">
+        <div class="git-slot-main">
+          <span class="git-slot-name">${s.slug}</span>
+          <span class="git-slot-meta">${(s.size / 1024).toFixed(0)} KB</span>
+        </div>
+        <div class="git-slot-actions">
+          <button class="btn btn-sm git-slot-compare" title="Comparer à la ROM active">📊</button>
+          <button class="btn btn-sm btn-danger git-slot-delete" title="Supprimer">✕</button>
+        </div>
+      </div>
+    `).join('');
+    listEl.querySelectorAll('.git-slot-row').forEach(row => {
+      const slug = row.dataset.slug;
+      row.querySelector('.git-slot-compare').addEventListener('click', () => this._compareFromSlot(slug));
+      row.querySelector('.git-slot-delete').addEventListener('click', async () => {
+        if (!confirm(`Supprimer la ROM "${slug}" ?`)) return;
+        try { await api.deleteRomSlot(this.projectId, slug); await this._refreshSlots(); }
+        catch (e) { alert('Suppression échouée : ' + e.message); }
+      });
+    });
+  }
+
+  async _compareFromSlot(slug) {
+    const status = this.el.querySelector('#git-compare-status');
+    status.style.display = '';
+    status.innerHTML = `<div class="spinner"></div> Analyse de ${slug}…`;
+    try {
+      const diff = await api.compareFromSlot(this.projectId, slug);
+      this.compareFileName = diff.fileName;
+      status.innerHTML = `📁 <b>${diff.fileName}</b> <span style="color:var(--text-dim)">(${(diff.size / 1024).toFixed(0)} KB · ${diff.maps?.length || 0} cartes diffèrent)</span> <a href="#" id="git-compare-clear">✕</a>`;
+      status.querySelector('#git-compare-clear').addEventListener('click', e => {
+        e.preventDefault();
+        this._clearCompare();
+      });
+      this.activeHash = null;
+      this.logEl.querySelectorAll('.git-entry').forEach(e => e.classList.remove('active'));
+      this.diffEl.style.display = '';
+      this._renderMapDiff(
+        { maps: diff.maps, error: diff.error },
+        { compareFile: true, fileName: diff.fileName, message: `slot ${slug}` }
       );
     } catch (e) {
       status.innerHTML = `<span style="color:var(--danger)">Erreur: ${e.message}</span>`;

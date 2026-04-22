@@ -51,6 +51,17 @@ export const api = {
   getCompareRom: (id) => req('GET', `/api/projects/${id}/compare-file`, undefined, true),
   clearCompareFile: (id) => req('DELETE', `/api/projects/${id}/compare-file`),
 
+  // Multi-ROM slots
+  listRomSlots: (id) => req('GET', `/api/projects/${id}/roms`),
+  addRomSlot: (id, file, name) => {
+    const fd = new FormData();
+    fd.append('rom', file);
+    if (name) fd.append('name', name);
+    return req('POST', `/api/projects/${id}/roms`, fd);
+  },
+  deleteRomSlot: (id, slug) => req('DELETE', `/api/projects/${id}/roms/${encodeURIComponent(slug)}`),
+  compareFromSlot: (id, slug) => req('POST', `/api/projects/${id}/compare-file-from-slot/${encodeURIComponent(slug)}`),
+
   // Per-map notes
   getMapNotes: (id) => req('GET', `/api/projects/${id}/notes`),
   setMapNote: (id, mapName, text) => req('PATCH', `/api/projects/${id}/notes/${encodeURIComponent(mapName)}`, { text }),

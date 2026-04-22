@@ -399,6 +399,48 @@ table.map-table td.modified input { color: var(--modified); }
 .git-compare-status a { color: var(--text-dim); margin-left: 6px; text-decoration: none; float: right; }
 .git-compare-status a:hover { color: var(--danger); }
 
+.git-slots-area {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.git-slots-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.git-slots-head span {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex: 1;
+}
+.git-slots-list { max-height: 140px; overflow-y: auto; }
+.git-slots-empty {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 4px 0;
+}
+.git-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  margin-bottom: 3px;
+  font-size: 11px;
+}
+.git-slot-main { flex: 1; overflow: hidden; }
+.git-slot-name { color: var(--text-hi); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.git-slot-meta { color: var(--text-dim); font-size: 10px; }
+.git-slot-actions { display: flex; gap: 3px; flex-shrink: 0; }
+.git-slot-actions .btn { padding: 2px 6px; font-size: 10px; }
+
 .git-commit-area {
   padding: 8px;
   border-bottom: 1px solid var(--border);

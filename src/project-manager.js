@@ -106,6 +106,68 @@ class ProjectManager {
     const p = path.join(this.dir, id, 'rom.original.bin');
     return fs.existsSync(p) ? p : null;
   }
+
+  // ── Additional ROM slots ────────────────────────────────────────────────────
+  // A project can keep N reference ROMs (customer dumps, other tuners'
+  // versions, etc.). The "active" ROM is still rom.bin (tracked by git);
+  // slots live in roms/ and are NOT committed — they are local reference
+  // material. Each slot has a stable slug derived from the user-provided name.
+
+  _slotsDir(id) { return path.join(this.getProjectDir(id), 'roms'); }
+
+  _sanitizeSlug(name) {
+    return (name || 'rom')
+      .replace(/\.(bin|BIN|hex|HEX|ols)$/i, '')
+      .replace(/[^a-zA-Z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'rom';
+  }
+
+  _ensureSlotsGitignored(id) {
+    // Exclude roms/ from the per-project git so extra ROMs don't bloat history.
+    const gi = path.join(this.getProjectDir(id), '.gitignore');
+    const line = 'roms/';
+    let current = '';
+    try { current = fs.readFileSync(gi, 'utf8'); } catch {}
+    if (!current.split('\n').map(s => s.trim()).includes(line)) {
+      fs.writeFileSync(gi, (current ? current.replace(/\n*$/, '\n') : '') + line + '\n');
+    }
+  }
+
+  listRomSlots(id) {
+    const dir = this._slotsDir(id);
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir).filter(f => f.endsWith('.bin')).map(f => {
+      const full = path.join(dir, f);
+      const st = fs.statSync(full);
+      return { slug: f.replace(/\.bin$/, ''), size: st.size, createdAt: st.mtime.toISOString() };
+    }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  addRomSlot(id, buffer, name) {
+    const dir = this._slotsDir(id);
+    fs.mkdirSync(dir, { recursive: true });
+    this._ensureSlotsGitignored(id);
+
+    // If the slug collides, suffix with -N
+    const baseSlug = this._sanitizeSlug(name);
+    let slug = baseSlug, n = 1;
+    while (fs.existsSync(path.join(dir, slug + '.bin'))) {
+      slug = `${baseSlug}-${n++}`;
+    }
+    fs.writeFileSync(path.join(dir, slug + '.bin'), buffer);
+    return { slug, size: buffer.length };
+  }
+
+  getRomSlotPath(id, slug) {
+    const p = path.join(this._slotsDir(id), slug + '.bin');
+    return fs.existsSync(p) ? p : null;
+  }
+
+  deleteRomSlot(id, slug) {
+    const p = this.getRomSlotPath(id, slug);
+    if (p) fs.rmSync(p, { force: true });
+  }
 }
 
 module.exports = ProjectManager;

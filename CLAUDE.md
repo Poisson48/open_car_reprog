@@ -87,6 +87,10 @@ docs/
 | POST | /api/projects/:id/a2l | Upload d'un `.a2l` personnalisé (multipart `a2l`), parse à chaud |
 | GET | /api/projects/:id/a2l/info | `{ custom, fileName?, characteristicsCount? }` |
 | DELETE | /api/projects/:id/a2l | Supprime le custom A2L → retour au A2L catalog ECU |
+| GET | /api/projects/:id/roms | Liste les ROMs de référence stockées (slots) |
+| POST | /api/projects/:id/roms | Ajoute un slot (multipart `rom`, opt. `name`) |
+| DELETE | /api/projects/:id/roms/:slug | Supprime un slot |
+| POST | /api/projects/:id/compare-file-from-slot/:slug | Charge un slot comme ref. compare-file (retourne le diff-maps) |
 | POST | /api/projects/:id/git/restore/:hash | Restaurer version |
 | GET/POST | /api/projects/:id/git/branches | Lister / créer |
 | PUT | /api/projects/:id/git/branches/:name | Switch (auto-commit WIP si dirty) |

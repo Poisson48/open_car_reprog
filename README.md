@@ -121,6 +121,13 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
   ECU. Parfait pour bosser sur un ECU hors-catalog ou avec un DAMOS bricolé.
   Le nom du fichier A2L en cours apparaît dans le fil d'ariane.
 
+- **Multi-ROMs par projet** — section *ROMs du projet* dans le panel Git :
+  ajoute autant de ROMs de référence que nécessaire (dumps clients, versions
+  d'autres tuneurs…). Un click sur `📊` déclenche une comparaison de la ROM
+  active contre le slot → liste des cartes qui diffèrent, ouverture en mode
+  compare dans l'éditeur. Les slots sont stockés en local par projet et
+  restent hors git (ils ne polluent pas l'historique de tune).
+
 ---
 
 ## Installation
