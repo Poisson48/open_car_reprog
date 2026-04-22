@@ -95,6 +95,12 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
   sélection dans la carte A, `Ctrl-C`, ouvrir la carte B, sélectionner la zone cible, `Ctrl-V`.
   Le collage est une opération atomique → un seul `Ctrl-Z` pour tout annuler.
 
+- **Lisser / Égaliser / Rampe** — 3 boutons sur la barre de sélection :
+  - `Lisser` : moyenne glissante 3×3 sur les cellules sélectionnées (adoucit les transitions).
+  - `Égaliser` : remplace toutes les cellules de la sélection par leur moyenne (mise à plat).
+  - `Rampe` : interpolation bilinéaire depuis les 4 coins actuels de la sélection
+    (pratique pour lisser un dégradé brusque).
+
 ---
 
 ## Installation

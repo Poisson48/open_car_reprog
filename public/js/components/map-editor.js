@@ -259,6 +259,9 @@ export class MapEditor {
         <button class="btn btn-sm map-adj-btn" data-op="pct" data-val="-1">−1%</button>
         <input type="number" id="map-set-val" placeholder="Valeur…" style="width:80px;background:var(--panel);border:1px solid var(--border);color:var(--text);padding:3px 6px;font-size:11px;font-family:inherit">
         <button class="btn btn-sm" id="map-apply-val">Appliquer</button>
+        <button class="btn btn-sm" id="map-smooth" title="Lisser : moyenne glissante 3×3 sur la sélection">Lisser</button>
+        <button class="btn btn-sm" id="map-flatten" title="Égaliser : toutes les cellules de la sélection prennent la moyenne">Égaliser</button>
+        <button class="btn btn-sm" id="map-ramp" title="Rampe : interpolation bilinéaire depuis les 4 coins de la sélection">Rampe</button>
         <button class="btn btn-sm" id="map-sel-all">Tout sélectionner</button>
         <button class="btn btn-sm" id="map-sel-clear">Désélectionner</button>
       </div>
@@ -299,6 +302,9 @@ export class MapEditor {
     });
     this.el.querySelector('#map-sel-all')?.addEventListener('click', () => this._selectAll());
     this.el.querySelector('#map-sel-clear')?.addEventListener('click', () => this._clearSelection());
+    this.el.querySelector('#map-smooth')?.addEventListener('click', () => this._applySmooth());
+    this.el.querySelector('#map-flatten')?.addEventListener('click', () => this._applyFlatten());
+    this.el.querySelector('#map-ramp')?.addEventListener('click', () => this._applyRamp());
 
     if (p.type === 'VALUE') this._renderValue(bigEndian);
     else if (p.type === 'CURVE') this._renderCurve(bigEndian);
@@ -692,6 +698,81 @@ export class MapEditor {
     }
     if (changed.length) this._flushChanges(changed);
     return changed.length;
+  }
+
+  // 3×3 box blur over the selection. Neighbours that are inside the grid but
+  // not in the selection still contribute — smoothing past the selection edge
+  // is what makes the result look like a real manual blend. Cells outside the
+  // grid are skipped (no wrap-around).
+  _applySmooth() {
+    if (!this._selection.size || !this._grid) return;
+    const changed = [];
+    for (const key of this._selection) {
+      const [xi, yi] = key.split(',').map(Number);
+      let sum = 0, n = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = xi + dx, ny = yi + dy;
+          if (nx < 0 || ny < 0 || nx >= this._xCount || ny >= this._yCount) continue;
+          const v = this._grid[ny]?.[nx];
+          if (v === undefined || v === null) continue;
+          sum += v; n++;
+        }
+      }
+      if (n > 0) {
+        const phys = sum / n;
+        this._grid[yi][xi] = phys;
+        changed.push({ xi, yi, phys });
+      }
+    }
+    if (changed.length) this._flushChanges(changed);
+  }
+
+  // Replace every selected cell with the mean of the selection.
+  _applyFlatten() {
+    if (!this._selection.size || !this._grid) return;
+    let sum = 0, n = 0;
+    for (const key of this._selection) {
+      const [xi, yi] = key.split(',').map(Number);
+      const v = this._grid[yi]?.[xi];
+      if (v !== undefined && v !== null) { sum += v; n++; }
+    }
+    if (n === 0) return;
+    const avg = sum / n;
+    const changed = [];
+    for (const key of this._selection) {
+      const [xi, yi] = key.split(',').map(Number);
+      this._grid[yi][xi] = avg;
+      changed.push({ xi, yi, phys: avg });
+    }
+    this._flushChanges(changed);
+  }
+
+  // Bilinear ramp from the current values of the 4 bounding-box corners of
+  // the selection. Only selected cells are updated — non-selected cells
+  // inside the bounding box are left alone.
+  _applyRamp() {
+    if (!this._selection.size || !this._grid) return;
+    let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+    for (const key of this._selection) {
+      const [xi, yi] = key.split(',').map(Number);
+      if (xi < xMin) xMin = xi; if (xi > xMax) xMax = xi;
+      if (yi < yMin) yMin = yi; if (yi > yMax) yMax = yi;
+    }
+    const v00 = this._grid[yMin]?.[xMin] ?? 0;
+    const v10 = this._grid[yMin]?.[xMax] ?? 0;
+    const v01 = this._grid[yMax]?.[xMin] ?? 0;
+    const v11 = this._grid[yMax]?.[xMax] ?? 0;
+    const changed = [];
+    for (const key of this._selection) {
+      const [xi, yi] = key.split(',').map(Number);
+      const tx = xMax === xMin ? 0 : (xi - xMin) / (xMax - xMin);
+      const ty = yMax === yMin ? 0 : (yi - yMin) / (yMax - yMin);
+      const phys = (1 - tx) * (1 - ty) * v00 + tx * (1 - ty) * v10 + (1 - tx) * ty * v01 + tx * ty * v11;
+      this._grid[yi][xi] = phys;
+      changed.push({ xi, yi, phys });
+    }
+    this._flushChanges(changed);
   }
 
   _applyPct(pct) {
