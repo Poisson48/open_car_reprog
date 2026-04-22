@@ -75,9 +75,11 @@ function textColorForBg(t) {
 }
 
 export class MapEditor {
-  constructor(el, { onBytesChange }) {
+  constructor(el, { onBytesChange, getNote, setNote }) {
     this.el = el;
     this.onBytesChange = onBytesChange;
+    this.getNote = getNote; // (mapName) => string|undefined
+    this.setNote = setNote; // (mapName, text) => Promise
     this.param = null;
     this.romData = null;
     this._chart = null;
@@ -249,6 +251,13 @@ export class MapEditor {
         <button class="btn btn-sm" id="map-close" style="margin-left:8px">✕</button>
       </div>
 
+      ${this.getNote ? `
+      <div class="map-note-bar">
+        <span class="map-note-icon" title="Note persistée pour cette carte">📝</span>
+        <input type="text" class="map-note-input" id="map-note-input" placeholder="Ajouter une note pour ${p.name}…" value="${(this.getNote(p.name) || '').replace(/"/g, '&quot;')}">
+        <span class="map-note-status" id="map-note-status"></span>
+      </div>` : ''}
+
       <div id="map-sel-bar" class="map-sel-bar hidden">
         <span id="map-sel-count" style="font-size:11px;color:var(--text-dim)">0 cellule(s) sélectionnée(s)</span>
         <button class="btn btn-sm map-adj-btn" data-op="pct" data-val="5">+5%</button>
@@ -277,6 +286,27 @@ export class MapEditor {
     this.el.classList.toggle('view-3d', !!(this._view3D && p.type === 'MAP'));
 
     this.el.querySelector('#map-close').addEventListener('click', () => this.hide());
+    const noteInput = this.el.querySelector('#map-note-input');
+    if (noteInput && this.setNote) {
+      const statusEl = this.el.querySelector('#map-note-status');
+      const flash = (msg) => {
+        if (!statusEl) return;
+        statusEl.textContent = msg;
+        setTimeout(() => { if (statusEl.textContent === msg) statusEl.textContent = ''; }, 1500);
+      };
+      noteInput.addEventListener('change', async () => {
+        try {
+          await this.setNote(p.name, noteInput.value);
+          flash('✓ enregistré');
+        } catch (e) {
+          flash('❌ ' + (e.message || 'erreur'));
+        }
+      });
+      noteInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { noteInput.blur(); }
+      });
+    }
+
     this.el.querySelector('#map-toggle-3d')?.addEventListener('click', () => {
       this._view3D = !this._view3D;
       this._render();

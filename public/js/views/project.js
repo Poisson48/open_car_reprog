@@ -94,6 +94,9 @@ export async function renderProject(container, { projectId, onBack }) {
   // In-memory clipboard for map-to-map copy/paste (survives map switches).
   let mapClipboard = null;
 
+  // Per-map notes cache (populated on ROM load, synced to server on change).
+  let mapNotes = {};
+
   function recordEdit(offset, newBytes, prevBytes) {
     if (!editCollector) {
       editCollector = [];
@@ -196,6 +199,10 @@ export async function renderProject(container, { projectId, onBack }) {
       setStatus(`Modifié: 0x${offset.toString(16).toUpperCase()} = 0x${value.toString(16).toUpperCase().padStart(2, '0')} | ${hexEditor.modified.size} byte(s) non sauvegardé(s)`);
     };
 
+    // Load per-map notes once; the map editor reads/writes through the cached
+    // object and syncs to the server on change.
+    mapNotes = await api.getMapNotes(projectId).catch(() => ({}));
+
     // Initialize map editor
     const mapPane = document.getElementById('map-editor-pane');
     mapEditor = new MapEditor(mapPane, {
@@ -204,6 +211,13 @@ export async function renderProject(container, { projectId, onBack }) {
         hexEditor.patchBytes(offset, bytes);
         recordEdit(offset, bytes, prevBytes || []);
         setStatus(`Carte modifiée à 0x${offset.toString(16).toUpperCase()} | ${hexEditor.modified.size} byte(s) non sauvegardé(s)`);
+      },
+      getNote: (mapName) => mapNotes[mapName] || '',
+      setNote: async (mapName, text) => {
+        const trimmed = (text || '').trim();
+        if (trimmed) mapNotes[mapName] = text;
+        else delete mapNotes[mapName];
+        await api.setMapNote(projectId, mapName, text);
       }
     });
 

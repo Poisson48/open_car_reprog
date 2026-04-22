@@ -80,6 +80,8 @@ docs/
 | POST | /api/projects/:id/compare-file | Upload d'un .bin de référence → liste des cartes qui diffèrent (buffer gardé en RAM) |
 | GET | /api/projects/:id/compare-file | Récupère le .bin de compare stocké (pour `mapEditor.showCompare`) |
 | DELETE | /api/projects/:id/compare-file | Libère le buffer de compare en RAM |
+| GET | /api/projects/:id/notes | Toutes les notes map → `{ [mapName]: text }` |
+| PATCH | /api/projects/:id/notes/:mapName | Enregistre/efface la note d'une carte (body `{ text }`, vide = delete) |
 | POST | /api/projects/:id/git/restore/:hash | Restaurer version |
 | GET/POST | /api/projects/:id/git/branches | Lister / créer |
 | PUT | /api/projects/:id/git/branches/:name | Switch (auto-commit WIP si dirty) |

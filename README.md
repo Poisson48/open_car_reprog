@@ -108,6 +108,13 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
 
   ![slice viewer](docs/screenshots/slice-viewer.png)
 
+- **Notes par carte** — une note libre est associée à chaque carte affichée
+  (input sous la toolbar, input vide supprime la note). Sauvegarde serveur
+  automatique au blur/Enter, persiste entre sessions et rechargements.
+  Pratique pour garder trace des essais : *"+15% stage 1, OK banc 2026-04"*.
+
+  ![notes par carte](docs/screenshots/map-notes.png)
+
 ---
 
 ## Installation

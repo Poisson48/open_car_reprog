@@ -289,6 +289,33 @@ app.delete('/api/projects/:id/compare-file', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Per-map notes (stored in meta.mapNotes) ───────────────────────────────────
+
+app.get('/api/projects/:id/notes', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    res.json(proj.mapNotes || {});
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.patch('/api/projects/:id/notes/:mapName', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    const text = (req.body?.text ?? '').toString();
+    const notes = { ...(proj.mapNotes || {}) };
+    if (text.trim() === '') delete notes[req.params.mapName];
+    else notes[req.params.mapName] = text;
+    await pm.update(req.params.id, { mapNotes: notes });
+    res.json({ ok: true, notes });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/projects/:id/git/branches', async (req, res) => {
   try {
     const gm = new GitManager(pm.getProjectDir(req.params.id));

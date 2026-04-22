@@ -51,6 +51,10 @@ export const api = {
   getCompareRom: (id) => req('GET', `/api/projects/${id}/compare-file`, undefined, true),
   clearCompareFile: (id) => req('DELETE', `/api/projects/${id}/compare-file`),
 
+  // Per-map notes
+  getMapNotes: (id) => req('GET', `/api/projects/${id}/notes`),
+  setMapNote: (id, mapName, text) => req('PATCH', `/api/projects/${id}/notes/${encodeURIComponent(mapName)}`, { text }),
+
   // WinOLS
   importWinols: (id, file) => {
     const fd = new FormData();

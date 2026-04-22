@@ -277,6 +277,30 @@ body {
 }
 .map-chart-wrap canvas { width: 100% !important; height: 100% !important; }
 
+/* Per-map persistent notes — single-line input under the toolbar */
+.map-note-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+  background: #22202a;
+  flex-shrink: 0;
+}
+.map-note-icon { font-size: 12px; }
+.map-note-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 0;
+  outline: none;
+}
+.map-note-input::placeholder { color: var(--text-dim); font-style: italic; }
+.map-note-status { font-size: 10px; color: var(--accent2); min-width: 80px; text-align: right; }
+
 /* Slice viewer — modal with a Chart.js line chart of a row or column */
 .map-slice-modal {
   min-width: 640px;
