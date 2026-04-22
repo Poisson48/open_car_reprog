@@ -101,6 +101,13 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
   - `Rampe` : interpolation bilinéaire depuis les 4 coins actuels de la sélection
     (pratique pour lisser un dégradé brusque).
 
+- **Slice viewer** — click sur un en-tête de ligne ou de colonne d'une MAP →
+  ouvre un modal avec la courbe de cette tranche (Chart.js). Pratique pour
+  vérifier rapidement qu'une ligne de RPM ou une colonne de couple a une forme
+  monotone sans zig-zags. `Esc` ou click hors modal pour fermer.
+
+  ![slice viewer](docs/screenshots/slice-viewer.png)
+
 ---
 
 ## Installation

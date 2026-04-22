@@ -277,6 +277,19 @@ body {
 }
 .map-chart-wrap canvas { width: 100% !important; height: 100% !important; }
 
+/* Slice viewer — modal with a Chart.js line chart of a row or column */
+.map-slice-modal {
+  min-width: 640px;
+  max-width: 90vw;
+  padding: 16px 20px;
+}
+.map-slice-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.map-slice-head h2 { flex: 1; color: var(--accent); }
+.map-slice-info { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; }
+.map-slice-canvas-wrap { height: 320px; position: relative; }
+.map-slice-canvas-wrap canvas { width: 100% !important; height: 100% !important; }
+th.map-slice-th:hover { color: var(--accent) !important; text-decoration: underline; }
+
 /* 3D surface mode — give the canvas room to breathe */
 .map-editor-pane.view-3d { height: 440px; }
 .map-content.view-3d .map-chart-wrap {

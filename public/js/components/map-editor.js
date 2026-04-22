@@ -516,7 +516,7 @@ export class MapEditor {
     const max = allVals.reduce((a, b) => a > b ? a : b, -Infinity);
     const range = max - min || 1;
 
-    const xHeaders = xVals.map(v => `<th>${v.toFixed(1)}</th>`).join('');
+    const xHeaders = xVals.map((v, xi) => `<th class="map-slice-th" data-slice="col" data-idx="${xi}" title="Voir la colonne X=${v.toFixed(1)} en courbe">${v.toFixed(1)}</th>`).join('');
     const rows = yVals.map((yv, yi) => {
       const cells = grid[yi].map((v, xi) => {
         const t = (v - min) / range;
@@ -526,7 +526,7 @@ export class MapEditor {
         const selBorder = this._selection.has(key) ? 'outline:2px solid #fff;outline-offset:-2px;' : '';
         return `<td style="background:${bg};${selBorder}"><input data-xi="${xi}" data-yi="${yi}" value="${v.toFixed(2)}" style="color:${fg}"></td>`;
       }).join('');
-      return `<tr><th style="font-size:10px;color:var(--accent2)">${yv.toFixed(1)}</th>${cells}</tr>`;
+      return `<tr><th class="map-slice-th" data-slice="row" data-idx="${yi}" title="Voir la ligne Y=${yv.toFixed(1)} en courbe" style="font-size:10px;color:var(--accent2)">${yv.toFixed(1)}</th>${cells}</tr>`;
     }).join('');
 
     wrap.innerHTML = `
@@ -541,6 +541,97 @@ export class MapEditor {
 
     this._bindTableInputs(wrap, bigEndian, dataAddr, valSz, valDT, p, grid.length, xVals.length, null, grid);
     this._bindCellSelection(wrap, grid);
+    this._bindSliceHeaders(wrap, xVals, yVals, grid, axisX, axisY, p);
+  }
+
+  _bindSliceHeaders(wrap, xVals, yVals, grid, axisX, axisY, p) {
+    wrap.querySelectorAll('th.map-slice-th').forEach(th => {
+      th.style.cursor = 'pointer';
+      th.addEventListener('click', () => {
+        const slice = th.dataset.slice;
+        const idx = parseInt(th.dataset.idx, 10);
+        this._showSlice(slice, idx, xVals, yVals, grid, axisX, axisY, p);
+      });
+    });
+  }
+
+  // Open a modal showing a line chart of a single row or column of the MAP.
+  // Row: X axis across the chart, fixed Y value. Column: Y axis across, fixed X.
+  _showSlice(kind, idx, xVals, yVals, grid, axisX, axisY, p) {
+    // Clean up any previous slice modal first
+    document.querySelector('.map-slice-overlay')?.remove();
+
+    const isRow = kind === 'row';
+    const labels = (isRow ? xVals : yVals).map(v => v.toFixed(1));
+    const values = isRow ? grid[idx] : grid.map(row => row[idx]);
+    const axisUnit = (isRow ? axisX : axisY)?.unit || (isRow ? 'X' : 'Y');
+    const otherUnit = (isRow ? axisY : axisX)?.unit || (isRow ? 'Y' : 'X');
+    const fixedAxisVal = (isRow ? yVals[idx] : xVals[idx]).toFixed(1);
+    const title = `${p.name} — ${isRow ? 'ligne' : 'colonne'} ${otherUnit}=${fixedAxisVal}`;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay map-slice-overlay';
+    overlay.innerHTML = `
+      <div class="modal map-slice-modal">
+        <div class="map-slice-head">
+          <h2 style="margin:0;font-size:13px">${title}</h2>
+          <button class="btn btn-sm" id="map-slice-close">✕</button>
+        </div>
+        <div class="map-slice-info">
+          ${values.length} points · min ${Math.min(...values).toFixed(2)} · max ${Math.max(...values).toFixed(2)} · ${p.unit || ''}
+        </div>
+        <div class="map-slice-canvas-wrap"><canvas id="map-slice-canvas"></canvas></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => {
+      overlay.remove();
+      document.removeEventListener('keydown', escHandler);
+    };
+    const escHandler = (e) => { if (e.key === 'Escape') close(); };
+    overlay.querySelector('#map-slice-close').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', escHandler);
+
+    const canvas = overlay.querySelector('#map-slice-canvas');
+    if (typeof Chart !== 'undefined') {
+      // eslint-disable-next-line no-new
+      new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            borderColor: '#569cd6',
+            backgroundColor: 'rgba(86,156,214,0.18)',
+            fill: true,
+            tension: 0.25,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#569cd6'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              title: { display: true, text: axisUnit, color: '#bbb', font: { size: 11 } },
+              ticks: { color: '#888', font: { size: 10 } },
+              grid: { color: '#333' }
+            },
+            y: {
+              title: { display: true, text: p.unit || '', color: '#bbb', font: { size: 11 } },
+              ticks: { color: '#888', font: { size: 10 } },
+              grid: { color: '#333' }
+            }
+          }
+        }
+      });
+    }
   }
 
   _bindTableInputs(wrap, bigEndian, dataAddr, valSz, valDT, p, yCount, xCount, curve1d, grid2d) {
