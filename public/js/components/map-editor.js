@@ -84,12 +84,17 @@ export class MapEditor {
     this._selection = new Set(); // "xi,yi" keys
     this._dragStart = null;
     this._grid = null;
+    this._xVals = null;
+    this._yVals = null;
     this._dataAddr = 0;
     this._xCount = 0;
     this._yCount = 0;
     this._valDT = 'SWORD';
     this._valSz = 2;
     this._bigEndian = true;
+    this._view3D = false;
+    this._view3DAz = 45;
+    this._view3DEl = 30;
     el.classList.add('hidden');
   }
 
@@ -239,6 +244,8 @@ export class MapEditor {
         <span class="map-name">${p.name}</span>
         <span class="map-desc">${p.description || ''}</span>
         <span style="font-size:11px;color:var(--text-dim)">${p.type} · ${p.dataType || ''} · ${p.unit || ''} · 0x${p.address.toString(16).toUpperCase()}</span>
+        ${p.type === 'MAP' ? `<button class="btn btn-sm" id="map-toggle-3d" style="margin-left:4px" title="Vue 3D / 2D">${this._view3D ? '▦ 2D' : '🗻 3D'}</button>
+        <button class="btn btn-sm map-3d-only" id="map-3d-reset" title="Réinitialiser la vue" style="display:${this._view3D ? '' : 'none'}">⟳</button>` : ''}
         <button class="btn btn-sm" id="map-close" style="margin-left:8px">✕</button>
       </div>
 
@@ -256,15 +263,27 @@ export class MapEditor {
         <button class="btn btn-sm" id="map-sel-clear">Désélectionner</button>
       </div>
 
-      <div class="map-content">
+      <div class="map-content${this._view3D && p.type === 'MAP' ? ' view-3d' : ''}">
         <div class="map-table-wrap" id="map-table-wrap"></div>
         <div class="map-chart-wrap" id="map-chart-wrap" style="display:${p.type === 'VALUE' ? 'none' : ''}">
           <canvas id="map-heatmap"></canvas>
         </div>
       </div>
     `;
+    // Expand the pane when 3D is active so the surface has room to breathe.
+    this.el.classList.toggle('view-3d', !!(this._view3D && p.type === 'MAP'));
 
     this.el.querySelector('#map-close').addEventListener('click', () => this.hide());
+    this.el.querySelector('#map-toggle-3d')?.addEventListener('click', () => {
+      this._view3D = !this._view3D;
+      this._render();
+      if (this.compareRom) queueMicrotask(() => this._applyCompareOverlay());
+    });
+    this.el.querySelector('#map-3d-reset')?.addEventListener('click', () => {
+      this._view3DAz = 45;
+      this._view3DEl = 30;
+      if (this._grid) this._drawChart(this._xVals, this._yVals, this._grid, p);
+    });
 
     // Selection bar buttons
     this.el.querySelectorAll('.map-adj-btn').forEach(btn => {
@@ -476,8 +495,11 @@ export class MapEditor {
     );
 
     this._grid = grid;
+    this._xVals = xVals;
+    this._yVals = yVals;
     this._renderMapTable(xVals, yVals, grid, axisX, axisY, p, bigEndian, dataAddr, valSz, valDT);
-    this._drawHeatmap(xVals, yVals, grid, p);
+    this._drawChart(xVals, yVals, grid, p);
+    if (this._view3D) this._bind3DControls();
   }
 
   _renderMapTable(xVals, yVals, grid, axisX, axisY, p, bigEndian, dataAddr, valSz, valDT) {
@@ -524,7 +546,7 @@ export class MapEditor {
         if (grid2d) {
           grid2d[yi][xi] = phys;
           this._refreshHeatmapColors(wrap, grid2d);
-          this._drawHeatmap(null, null, grid2d, p);
+          this._drawChart(this._xVals, this._yVals, grid2d, p);
         } else if (curve1d) {
           curve1d[xi] = phys;
         }
@@ -678,7 +700,7 @@ export class MapEditor {
       this._refreshSelectionHighlight(table);
     }
 
-    if (this.param.type === 'MAP') this._drawHeatmap(null, null, this._grid, p);
+    if (this.param.type === 'MAP') this._drawChart(this._xVals, this._yVals, this._grid, p);
   }
 
   _writeCell(xi, yi, phys, xCount, bigEndian, dataAddr, valSz, valDT, p) {
@@ -707,6 +729,170 @@ export class MapEditor {
       const td = inp.closest('td');
       if (td) { td.style.background = heatColor(t); inp.style.color = textColorForBg(t); }
     });
+  }
+
+  // ── Chart dispatcher (2D heatmap vs 3D surface) ─────────────────────────────
+
+  _drawChart(xVals, yVals, grid, p) {
+    if (this._view3D && p.type === 'MAP') this._draw3D(xVals, yVals, grid, p);
+    else this._drawHeatmap(xVals, yVals, grid, p);
+  }
+
+  // ── 3D surface ──────────────────────────────────────────────────────────────
+
+  _draw3D(xVals, yVals, grid, p) {
+    const canvas = this.el.querySelector('#map-heatmap');
+    if (!canvas) return;
+    const wrap = this.el.querySelector('#map-chart-wrap');
+    const W = wrap.clientWidth || 400;
+    const H = wrap.clientHeight || 260;
+    canvas.width = W;
+    canvas.height = H;
+
+    const ny = grid.length;
+    const nx = grid[0]?.length || 0;
+    if (!nx || !ny) return;
+
+    const allVals = grid.flat();
+    const minV = allVals.reduce((a, b) => a < b ? a : b, Infinity);
+    const maxV = allVals.reduce((a, b) => a > b ? a : b, -Infinity);
+    const range = maxV - minV || 1;
+
+    // Normalize data to a unit box: X,Y in [-0.5,0.5], Z in [-0.3,0.3]
+    const nX = xi => nx > 1 ? (xi / (nx - 1) - 0.5) : 0;
+    const nY = yi => ny > 1 ? (yi / (ny - 1) - 0.5) : 0;
+    const nZ = v => ((v - minV) / range - 0.5) * 0.6;
+
+    const az = this._view3DAz * Math.PI / 180;
+    const el = this._view3DEl * Math.PI / 180;
+    const cA = Math.cos(az), sA = Math.sin(az);
+    const cE = Math.cos(el), sE = Math.sin(el);
+
+    // Yaw around Z, then pitch around X. Camera looks along +Y.
+    // Returns {sx, sy, depth} where larger depth = further from camera.
+    const scale = Math.min(W, H) * 0.7;
+    const cx = W / 2, cy = H / 2 + H * 0.06;
+    const project = (x, y, z) => {
+      const x1 = x * cA + y * sA;
+      const y1 = -x * sA + y * cA;
+      const y2 = y1 * cE + z * sE;
+      const z2 = -y1 * sE + z * cE;
+      return { sx: cx + x1 * scale, sy: cy - z2 * scale, depth: y2 };
+    };
+
+    // Project all grid vertices once
+    const verts = [];
+    for (let yi = 0; yi < ny; yi++) {
+      const row = [];
+      for (let xi = 0; xi < nx; xi++) row.push(project(nX(xi), nY(yi), nZ(grid[yi][xi])));
+      verts.push(row);
+    }
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#1e1e1e';
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid floor at Z = -0.3 for visual grounding
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 0.5;
+    const floorZ = -0.3;
+    for (let xi = 0; xi < nx; xi++) {
+      const a = project(nX(xi), nY(0), floorZ);
+      const b = project(nX(xi), nY(ny - 1), floorZ);
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+    }
+    for (let yi = 0; yi < ny; yi++) {
+      const a = project(nX(0), nY(yi), floorZ);
+      const b = project(nX(nx - 1), nY(yi), floorZ);
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+    }
+
+    // Build quads and sort back-to-front (painter's algorithm)
+    const quads = [];
+    for (let yi = 0; yi < ny - 1; yi++) {
+      for (let xi = 0; xi < nx - 1; xi++) {
+        const v00 = verts[yi][xi];
+        const v10 = verts[yi][xi + 1];
+        const v11 = verts[yi + 1][xi + 1];
+        const v01 = verts[yi + 1][xi];
+        const avgV = (grid[yi][xi] + grid[yi][xi + 1] + grid[yi + 1][xi + 1] + grid[yi + 1][xi]) / 4;
+        quads.push({
+          pts: [v00, v10, v11, v01],
+          t: (avgV - minV) / range,
+          depth: (v00.depth + v10.depth + v11.depth + v01.depth) / 4
+        });
+      }
+    }
+    quads.sort((a, b) => b.depth - a.depth);
+
+    for (const q of quads) {
+      ctx.fillStyle = heatColor(q.t);
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(q.pts[0].sx, q.pts[0].sy);
+      ctx.lineTo(q.pts[1].sx, q.pts[1].sy);
+      ctx.lineTo(q.pts[2].sx, q.pts[2].sy);
+      ctx.lineTo(q.pts[3].sx, q.pts[3].sy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Axes at the back-left corner of the box
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 1;
+    ctx.font = '10px Consolas, monospace';
+    ctx.fillStyle = '#bbb';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+
+    const drawAxis = (p0, p1, label) => {
+      ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.stroke();
+      ctx.fillText(label, p1.sx + 4, p1.sy);
+    };
+    const xLabel = p.axisDefs?.[0]?.unit ? `X [${p.axisDefs[0].unit}]` : 'X';
+    const yLabel = p.axisDefs?.[1]?.unit ? `Y [${p.axisDefs[1].unit}]` : 'Y';
+    const zLabel = p.unit ? `Z [${p.unit}]` : 'Z';
+    drawAxis(project(-0.5, -0.5, floorZ), project(0.5, -0.5, floorZ), xLabel);
+    drawAxis(project(-0.5, -0.5, floorZ), project(-0.5, 0.5, floorZ), yLabel);
+    drawAxis(project(-0.5, -0.5, floorZ), project(-0.5, -0.5, 0.3), zLabel);
+
+    // Min/max annotation
+    ctx.fillStyle = '#888';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`min ${minV.toFixed(2)}  max ${maxV.toFixed(2)}  az ${Math.round(this._view3DAz)}° el ${Math.round(this._view3DEl)}°`, 6, 4);
+    ctx.fillText(`glisser pour tourner · molette pour zoomer`, 6, 18);
+  }
+
+  _bind3DControls() {
+    const canvas = this.el.querySelector('#map-heatmap');
+    if (!canvas || canvas._3dBound) return;
+    canvas._3dBound = true;
+
+    let dragging = false;
+    let startX = 0, startY = 0, startAz = 0, startEl = 0;
+
+    canvas.addEventListener('mousedown', e => {
+      if (!this._view3D) return;
+      dragging = true;
+      startX = e.clientX; startY = e.clientY;
+      startAz = this._view3DAz; startEl = this._view3DEl;
+      canvas.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+    const onMove = (e) => {
+      if (!dragging) return;
+      this._view3DAz = startAz + (e.clientX - startX) * 0.5;
+      this._view3DEl = Math.max(-10, Math.min(85, startEl - (e.clientY - startY) * 0.5));
+      if (this._grid && this.param) this._draw3D(this._xVals, this._yVals, this._grid, this.param);
+    };
+    const onUp = () => { dragging = false; canvas.style.cursor = 'grab'; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    canvas.style.cursor = 'grab';
   }
 
   // ── Heatmap Canvas ──────────────────────────────────────────────────────────

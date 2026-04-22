@@ -19,6 +19,11 @@ pour toute la partie versionnement / comparaison / variantes.
   du projet. Les ROMs dumpées avec un décalage mémoire (ex : flash mappée à `0x80000000`) peuvent
   afficher leurs adresses réelles dans l'hex editor et le "Go to" sans toucher au fichier.
 - **Éditeur de cartographies** — heatmap 2D, sélection cellule / plage / ligne / colonne, ajustements ±%
+- **Vue 3D** — bouton `🗻 3D` dans la toolbar de la carte : rendu surface colorée par altitude,
+  rotation à la souris (az/el), bouton `⟳` pour réinitialiser la vue. Le tableau 2D reste éditable
+  à côté ; modifier une cellule rafraîchit immédiatement la surface 3D.
+
+  ![carto 3D](docs/screenshots/map-3d.png)
 - **Record layouts variés supportés** — le lecteur respecte le `RECORD_LAYOUT` A2L (présence/absence
   des `NO_AXIS_PTS_X/Y` inline, dimensions fixes via `maxAxisPoints`, COM_AXIS partagés). Un badge
   `⚠ Layout` s'affiche si l'en-tête nx/ny lu en ROM est illisible (ROM d'une autre version firmware).

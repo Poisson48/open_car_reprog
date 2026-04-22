@@ -41,7 +41,7 @@ public/
       project.js            Vue projet : toolbar, hex editor, map editor, git panel
     components/
       hex-editor.js         Canvas + virtual scroll (2MB = 131k lignes × 20px), displayBase pour décaler les adresses affichées
-      map-editor.js         Heatmap canvas, sélection cellules, ±% adjustments, mode compare (deltas vert/rouge)
+      map-editor.js         Heatmap canvas, sélection cellules, ±% adjustments, mode compare (deltas vert/rouge), vue 3D surface (yaw/pitch à la souris)
       param-panel.js        Sidebar paramètres A2L avec recherche/filtre
       git-panel.js          Historique git avec graph SVG (lanes colorées + ref badges), diff map-level, restore, ✨ suggestion msg
       branch-switcher.js    Dropdown branches dans la toolbar

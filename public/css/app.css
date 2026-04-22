@@ -277,6 +277,18 @@ body {
 }
 .map-chart-wrap canvas { width: 100% !important; height: 100% !important; }
 
+/* 3D surface mode — give the canvas room to breathe */
+.map-editor-pane.view-3d { height: 440px; }
+.map-content.view-3d .map-chart-wrap {
+  width: auto;
+  flex: 1 1 55%;
+  min-width: 320px;
+  padding: 0;
+  background: #1e1e1e;
+}
+.map-content.view-3d .map-chart-wrap canvas { cursor: grab; }
+.map-content.view-3d .map-table-wrap { flex: 1 1 45%; }
+
 table.map-table {
   border-collapse: collapse;
   font-size: 11px;
