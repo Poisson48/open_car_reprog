@@ -162,17 +162,9 @@ export class MapEditor {
     const table = this.el.querySelector('#map-grid-table');
     if (!table || !this.compareRom) return;
 
-    const nx = readValue(this.romData, p.address, 'SWORD', bigEndian);
-    const ny = readValue(this.romData, p.address + 2, 'SWORD', bigEndian);
+    const { xCount: nx, yCount: ny, dataAddr: dataOff, valDT, valSz } =
+      this._computeMapLayout(p, bigEndian);
     if (nx <= 0 || ny <= 0 || nx > 256 || ny > 256) return;
-
-    const axisX = p.axisDefs?.[0];
-    const axisY = p.axisDefs?.[1];
-    const axisSz = axisX?.byteSize || 2;
-    const yAxisSz = axisY?.byteSize || 2;
-    const valSz = p.byteSize || 2;
-    const valDT = p.dataType || 'SWORD';
-    const dataOff = p.address + 4 + nx * axisSz + ny * yAxisSz;
 
     table.querySelectorAll('input[data-xi]').forEach(inp => {
       const xi = parseInt(inp.dataset.xi);
@@ -200,11 +192,7 @@ export class MapEditor {
     const axis = p.axisDefs?.[0];
     if (!axis) return;
 
-    const valSz = p.byteSize || 2;
-    const valDT = p.dataType || 'SWORD';
-    const axisSz = axis.byteSize || 2;
-    const valCount = axis.maxAxisPoints || 16;
-    const dataAddr = axis.attribute === 'STD_AXIS' ? p.address + valCount * axisSz : p.address;
+    const { dataAddr, valDT, valSz } = this._computeCurveLayout(p, bigEndian);
 
     table.querySelectorAll('input[data-xi]').forEach(inp => {
       const xi = parseInt(inp.dataset.xi);
@@ -395,19 +383,48 @@ export class MapEditor {
 
   // ── CURVE ───────────────────────────────────────────────────────────────────
 
+  // Same idea as _computeMapLayout but for 1D CURVE/Kl_* layouts. Handles
+  // inline NO_AXIS_PTS_X when the record layout declares one, and any axis
+  // or value data type supported by DATA_SIZES.
+  _computeCurveLayout(p, bigEndian) {
+    const axis = p.axisDefs?.[0];
+    const valDT = p.dataType || 'SWORD';
+    const axisDT = axis?.dataType || 'SWORD';
+    const valSz = DATA_SIZES[valDT] || 2;
+    const axisSz = DATA_SIZES[axisDT] || 2;
+
+    const rl = p._recordLayout || {};
+    const nxSpec = rl.noAxisPtsX;
+    const nxDT = nxSpec?.dataType || 'SWORD';
+    const nxSz = nxSpec ? (DATA_SIZES[nxDT] || 2) : 0;
+
+    const declared = Math.min(axis?.maxAxisPoints || 16, 512);
+    let valCount = declared, usedInline = false;
+    if (nxSpec) {
+      const raw = readValue(this.romData, p.address, nxDT, bigEndian);
+      if (raw > 0 && raw <= Math.max(declared, 32)) {
+        valCount = raw;
+        usedInline = true;
+      }
+    }
+
+    const axisAddr = axis?.attribute === 'COM_AXIS' && axis.address
+      ? axis.address
+      : p.address + (usedInline ? nxSz : 0);
+    const dataAddr = axis?.attribute === 'STD_AXIS'
+      ? axisAddr + valCount * axisSz
+      : p.address;
+
+    return { valCount, axisAddr, dataAddr, valDT, valSz, axisDT, axisSz, usedInline };
+  }
+
   _renderCurve(bigEndian) {
     const p = this.param;
     const axis = p.axisDefs?.[0];
     if (!axis) { this.el.querySelector('#map-table-wrap').innerHTML = '<div class="empty-state">Pas d\'axe défini</div>'; return; }
 
-    const valDT = p.dataType || 'SWORD';
-    const axisDT = axis.dataType || 'SWORD';
-    const valSz = DATA_SIZES[valDT] || 2;
-    const axisSz = DATA_SIZES[axisDT] || 2;
-    const valCount = axis.maxAxisPoints || 16;
-
-    let axisAddr = axis.attribute === 'COM_AXIS' && axis.address ? axis.address : p.address;
-    let dataAddr = axis.attribute === 'STD_AXIS' ? p.address + valCount * axisSz : p.address;
+    const { valCount, axisAddr, dataAddr, valDT, valSz, axisDT, axisSz } =
+      this._computeCurveLayout(p, bigEndian);
 
     const axisVals = Array.from({ length: valCount }, (_, i) =>
       toPhys(readValue(this.romData, axisAddr + i * axisSz, axisDT, bigEndian), axis)
@@ -453,15 +470,15 @@ export class MapEditor {
 
   // ── MAP 2D ──────────────────────────────────────────────────────────────────
 
-  _renderMap(bigEndian) {
-    const p = this.param;
+  // Compute every address + count for a MAP, handling any record layout
+  // (inline or not, any inline data type, byte-width data). The convention
+  // followed — NO_AXIS_PTS_X then NO_AXIS_PTS_Y then axes then data — matches
+  // the Bosch DAMOS layout ordering that every edc16c34 / MED17 ROM we've
+  // looked at follows. Record layouts that put elements in a different order
+  // (rare) would need a position-walking pass; TODO if a real A2L hits it.
+  _computeMapLayout(p, bigEndian) {
     const axisX = p.axisDefs?.[0];
     const axisY = p.axisDefs?.[1];
-    if (!axisX || !axisY) {
-      this.el.querySelector('#map-table-wrap').innerHTML = '<div class="empty-state">Axes non définis</div>';
-      return;
-    }
-
     const valDT = p.dataType || 'SWORD';
     const xDT = axisX.dataType || 'SWORD';
     const yDT = axisY.dataType || 'SWORD';
@@ -469,40 +486,32 @@ export class MapEditor {
     const xSz = DATA_SIZES[xDT] || 2;
     const ySz = DATA_SIZES[yDT] || 2;
 
-    // Determine nx/ny from the record layout. Layouts like Kf_Xs16_Ys16_Ws16
-    // store NO_AXIS_PTS_X/Y inline as a header; other layouts keep axis counts
-    // fixed via AXIS_DESCR.maxAxisPoints. Fall back to AXIS_DESCR if inline
-    // header reads nonsense (e.g. a different firmware lays the map elsewhere).
     const rl = p._recordLayout || {};
-    const hasInlineNx = !!rl.noAxisPtsX;
-    const hasInlineNy = !!rl.noAxisPtsY;
-    const view = new DataView(this.romData.buffer ?? this.romData);
-
-    const headerSize = (hasInlineNx ? 2 : 0) + (hasInlineNy ? 2 : 0);
-    const posNx = 0;
-    const posNy = hasInlineNx ? 2 : 0;
+    const nxSpec = rl.noAxisPtsX; // { position, dataType } or undefined
+    const nySpec = rl.noAxisPtsY;
+    const nxDT = nxSpec?.dataType || 'SWORD';
+    const nyDT = nySpec?.dataType || 'SWORD';
+    const nxSz = nxSpec ? (DATA_SIZES[nxDT] || 2) : 0;
+    const nySz = nySpec ? (DATA_SIZES[nyDT] || 2) : 0;
+    const headerSize = nxSz + nySz;
 
     const declaredX = Math.min(axisX.maxAxisPoints || 8, 512);
     const declaredY = Math.min(axisY.maxAxisPoints || 8, 512);
 
     let xCount = declaredX, yCount = declaredY, usedInline = false;
-    if (hasInlineNx || hasInlineNy) {
-      const rawX = hasInlineNx ? view.getInt16(p.address + posNx, false) : declaredX;
-      const rawY = hasInlineNy ? view.getInt16(p.address + posNy, false) : declaredY;
+    if (nxSpec || nySpec) {
+      const rawX = nxSpec ? readValue(this.romData, p.address, nxDT, bigEndian) : declaredX;
+      const rawY = nySpec ? readValue(this.romData, p.address + nxSz, nyDT, bigEndian) : declaredY;
       const plausible = (v, max) => v > 0 && v <= Math.max(max, 32);
       if (plausible(rawX, declaredX) && plausible(rawY, declaredY)) {
         xCount = rawX;
         yCount = rawY;
         usedInline = true;
       } else {
-        // Header is nonsense → the ROM likely doesn't store this map at the A2L
-        // address (different firmware version / base offset). Fall back silently
-        // to the declared max sizes and show a warning banner.
         this._showLayoutWarning(p.address, rawX, rawY, declaredX, declaredY);
       }
     }
 
-    // xAddr starts after the inline nx/ny header for STD_AXIS with inline layout.
     const xAddr = axisX.attribute === 'COM_AXIS' && axisX.address
       ? axisX.address
       : p.address + (usedInline ? headerSize : 0);
@@ -512,6 +521,21 @@ export class MapEditor {
     const dataAddr = (axisX.attribute === 'COM_AXIS' || axisY.attribute === 'COM_AXIS')
       ? p.address
       : xAddr + xCount * xSz + yCount * ySz;
+
+    return { xCount, yCount, xAddr, yAddr, dataAddr, valDT, valSz, xDT, xSz, yDT, ySz, usedInline };
+  }
+
+  _renderMap(bigEndian) {
+    const p = this.param;
+    const axisX = p.axisDefs?.[0];
+    const axisY = p.axisDefs?.[1];
+    if (!axisX || !axisY) {
+      this.el.querySelector('#map-table-wrap').innerHTML = '<div class="empty-state">Axes non définis</div>';
+      return;
+    }
+
+    const { xCount, yCount, xAddr, yAddr, dataAddr, valDT, valSz, xDT, xSz, yDT, ySz } =
+      this._computeMapLayout(p, bigEndian);
 
     this._dataAddr = dataAddr;
     this._xCount = xCount;

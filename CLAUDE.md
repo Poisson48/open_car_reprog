@@ -148,6 +148,18 @@ Bug scroll corrigé : `evLayer` (div top layer) forwardait pas les events `wheel
 (ex : ROM mappée à `0x80000000` en mémoire physique). Le décalage est purement visuel — les offsets
 fichier restent inchangés. La valeur est persistée en meta projet (`displayAddressBase`).
 
+## Layouts DAMOS supportés
+
+Le map editor gère n'importe quel `RECORD_LAYOUT` A2L tant que l'ordre des
+positions suit la convention Bosch (nx → ny → axes → data). Concrètement,
+la lecture d'`inline NO_AXIS_PTS_X/Y` utilise le `dataType` du record layout
+(UWORD, SWORD, UBYTE…) et la taille d'en-tête se déduit du datatype. Le
+datatype des valeurs de cellules et des axes vient de même du record layout.
+
+Layouts testés : `Kf_Xs16_Ys16_Ws16` (EDC16C34), `Kf_Xu16_Yu16_Wu16` (MED17
+typique), `Kl_Xs16_Ws16` (curves Bosch avec inline N), et par héritage tout
+layout qui respecte la convention d'ordre ci-dessus.
+
 ## Parser A2L — attention AXIS_DESCR
 
 L'ordre ASAP2 des champs positionnels de `AXIS_DESCR` est :
