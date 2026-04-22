@@ -21,7 +21,10 @@ export async function renderProject(container, { projectId, onBack }) {
     const parts = [project.name];
     if (project.vehicle) parts.push(project.vehicle);
     if (project.immat) parts.push(project.immat.toUpperCase());
-    document.getElementById('breadcrumb').textContent = `→ ${parts.join(' · ')} (${project.ecu.toUpperCase()})`;
+    const ecuLabel = project.customA2lName
+      ? `${project.ecu.toUpperCase()} · A2L: ${project.customA2lName}`
+      : project.ecu.toUpperCase();
+    document.getElementById('breadcrumb').textContent = `→ ${parts.join(' · ')} (${ecuLabel})`;
   }
   updateBreadcrumb();
 
@@ -41,6 +44,8 @@ export async function renderProject(container, { projectId, onBack }) {
           <button class="btn btn-sm" id="btn-goto">↵ Go</button>
           <button class="btn btn-sm" id="btn-edit-project" title="Modifier les infos du projet">✎ Modifier</button>
           <button class="btn btn-sm" id="btn-auto-mods" title="Modifications automatiques EDC16C34" style="color:var(--warn);border-color:var(--warn)" ${!project.hasRom ? 'disabled' : ''}>⚡ Auto-mods</button>
+          <button class="btn btn-sm" id="btn-a2l-upload" title="Charger un fichier A2L/DAMOS personnalisé pour ce projet">📑 A2L</button>
+          <input type="file" id="a2l-file-input" accept=".a2l,.A2L" style="display:none">
           <span id="branch-switcher-slot"></span>
           <div style="flex:1"></div>
           ${!project.hasRom ? `
@@ -307,6 +312,25 @@ export async function renderProject(container, { projectId, onBack }) {
       fi.addEventListener('change', e => { const f = e.target.files[0]; if (f) importRom(f, true); });
       fi.click();
     });
+
+    const a2lInput = document.getElementById('a2l-file-input');
+    document.getElementById('btn-a2l-upload')?.addEventListener('click', () => a2lInput?.click());
+    a2lInput?.addEventListener('change', async (e) => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      setStatus(`Import A2L: ${f.name}…`);
+      try {
+        const info = await api.uploadA2l(projectId, f);
+        project = await api.getProject(projectId);
+        updateBreadcrumb();
+        await paramPanel.refresh();
+        setStatus(`A2L "${info.fileName}" chargé — ${info.characteristicsCount} caractéristiques`);
+      } catch (err) {
+        alert('Import A2L échoué : ' + err.message);
+        setStatus('Erreur import A2L');
+      }
+      a2lInput.value = '';
+    });
   }
 
   function gotoAddress() {
@@ -325,7 +349,7 @@ export async function renderProject(container, { projectId, onBack }) {
   // ── Param Panel ─────────────────────────────────────────────────────────────
 
   const paramPanel = new ParamPanel(document.getElementById('param-sidebar'), {
-    ecu: project.ecu,
+    projectId,
     onSelect: async (param) => {
       if (hexEditor) {
         const sz = param.byteSize || 2;
@@ -342,7 +366,7 @@ export async function renderProject(container, { projectId, onBack }) {
         // the sidebar is not enough to render axes correctly, and undo/redo
         // needs the full param to re-render after a revert.
         try {
-          const full = await api.getParam(project.ecu, param.name);
+          const full = await api.getProjectParam(projectId, param.name);
           currentParam = full;
           mapEditor.show(full, romData);
         } catch (e) {
@@ -365,7 +389,7 @@ export async function renderProject(container, { projectId, onBack }) {
     },
     onMapClick: async (name, commit) => {
       try {
-        const full = await api.getParam(project.ecu, name);
+        const full = await api.getProjectParam(projectId, name);
         currentParam = full;
         let compareRom = null;
         let compareLabel = null;

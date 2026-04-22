@@ -82,6 +82,11 @@ docs/
 | DELETE | /api/projects/:id/compare-file | Libère le buffer de compare en RAM |
 | GET | /api/projects/:id/notes | Toutes les notes map → `{ [mapName]: text }` |
 | PATCH | /api/projects/:id/notes/:mapName | Enregistre/efface la note d'une carte (body `{ text }`, vide = delete) |
+| GET | /api/projects/:id/parameters | Liste paramètres A2L pour CE projet (custom si uploadé, sinon catalog ECU) |
+| GET | /api/projects/:id/parameters/:name | Détail enrichi d'un paramètre |
+| POST | /api/projects/:id/a2l | Upload d'un `.a2l` personnalisé (multipart `a2l`), parse à chaud |
+| GET | /api/projects/:id/a2l/info | `{ custom, fileName?, characteristicsCount? }` |
+| DELETE | /api/projects/:id/a2l | Supprime le custom A2L → retour au A2L catalog ECU |
 | POST | /api/projects/:id/git/restore/:hash | Restaurer version |
 | GET/POST | /api/projects/:id/git/branches | Lister / créer |
 | PUT | /api/projects/:id/git/branches/:name | Switch (auto-commit WIP si dirty) |

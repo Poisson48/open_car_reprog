@@ -115,6 +115,12 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
 
   ![notes par carte](docs/screenshots/map-notes.png)
 
+- **A2L / DAMOS custom par projet** — bouton `📑 A2L` dans la toolbar :
+  upload un fichier `.a2l` personnel, le parser serveur en extrait les
+  caractéristiques et la sidebar affiche cette liste au lieu de la catalog
+  ECU. Parfait pour bosser sur un ECU hors-catalog ou avec un DAMOS bricolé.
+  Le nom du fichier A2L en cours apparaît dans le fil d'ariane.
+
 ---
 
 ## Installation

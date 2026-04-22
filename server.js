@@ -53,6 +53,23 @@ async function getA2l(ecu) {
   return parsed;
 }
 
+// Returns the A2L to use for a project: custom if uploaded, else ECU default.
+// Parsed result is kept in process memory — no disk cache in the project dir
+// to keep git commits clean. A fresh server sees the parse cost once per
+// project that has a custom A2L, which is acceptable given how rarely these
+// are uploaded.
+const projectA2lCache = new Map(); // projectId -> parsed A2L
+async function getA2lForProject(proj) {
+  const customPath = path.join(pm.getProjectDir(proj.id), 'custom.a2l');
+  if (fs.existsSync(customPath)) {
+    if (projectA2lCache.has(proj.id)) return projectA2lCache.get(proj.id);
+    const parsed = new A2lParser().parse(customPath);
+    projectA2lCache.set(proj.id, parsed);
+    return parsed;
+  }
+  return getA2l(proj.ecu);
+}
+
 app.use(express.json({ limit: '8mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -104,6 +121,7 @@ app.patch('/api/projects/:id', async (req, res) => {
 
 app.delete('/api/projects/:id', async (req, res) => {
   compareBuffers.delete(req.params.id);
+  projectA2lCache.delete(req.params.id);
   await pm.delete(req.params.id);
   res.status(204).end();
 });
@@ -206,7 +224,7 @@ app.get('/api/projects/:id/git/diff-maps/:hash', async (req, res) => {
       gm.readFileAtCommit(parentHash)
     ]);
 
-    const a2l = await getA2l(proj.ecu);
+    const a2l = await getA2lForProject(proj);
     if (!a2l) return res.json({ hash: req.params.hash, parentHash, maps: [], error: 'No A2L for this ECU' });
 
     const { maps, intervals } = mapsChanged(parentBuf, curBuf, a2l.characteristics);
@@ -231,7 +249,7 @@ app.get('/api/projects/:id/git/diff-maps-head', async (req, res) => {
     const headBuf = await gm.readFileAtCommit(headHash);
     const curBuf = fs.readFileSync(pm.getRomPath(proj.id));
 
-    const a2l = await getA2l(proj.ecu);
+    const a2l = await getA2lForProject(proj);
     if (!a2l) return res.json({ maps: [], error: 'No A2L for this ECU' });
 
     const { maps } = mapsChanged(headBuf, curBuf, a2l.characteristics);
@@ -259,7 +277,7 @@ app.post('/api/projects/:id/compare-file', upload.single('rom'), async (req, res
       uploadedAt: new Date().toISOString()
     });
 
-    const a2l = await getA2l(proj.ecu);
+    const a2l = await getA2lForProject(proj);
     if (!a2l) return res.json({ fileName: req.file.originalname, size: otherBuf.length, maps: [], error: 'No A2L for this ECU' });
 
     // Diff direction: otherBuf = "parent/ori", currentBuf = "child/tune".
@@ -359,13 +377,9 @@ app.delete('/api/projects/:id/git/branches/:name', async (req, res) => {
 
 // ── ECU Parameters ────────────────────────────────────────────────────────────
 
-app.get('/api/ecu/:ecu/parameters', async (req, res) => {
-  const a2l = await getA2l(req.params.ecu);
-  if (!a2l) return res.status(404).json({ error: 'Unknown ECU or A2L not found' });
-
+function filterParamList(a2l, query) {
   let items = a2l.characteristics;
-  const { search, type, offset = 0, limit = 200 } = req.query;
-
+  const { search, type, offset = 0, limit = 200 } = query;
   if (search) {
     const q = search.toLowerCase();
     items = items.filter(p =>
@@ -373,31 +387,109 @@ app.get('/api/ecu/:ecu/parameters', async (req, res) => {
     );
   }
   if (type) items = items.filter(p => p.type === type.toUpperCase());
+  return { total: items.length, items: items.slice(+offset, +offset + +limit) };
+}
 
-  res.json({ total: items.length, items: items.slice(+offset, +offset + +limit) });
-});
-
-app.get('/api/ecu/:ecu/parameters/:name', async (req, res) => {
-  const a2l = await getA2l(req.params.ecu);
-  if (!a2l) return res.status(404).json({ error: 'Unknown ECU' });
-  const param = a2l.characteristics.find(c => c.name === req.params.name);
-  if (!param) return res.status(404).json({ error: 'Parameter not found' });
-
-  // Include record layout and compu method details
+function enrichParam(a2l, name) {
+  const param = a2l.characteristics.find(c => c.name === name);
+  if (!param) return null;
   const enriched = {
     ...param,
     _recordLayout: a2l.recordLayouts[param.recordLayout],
     _compuMethod: a2l.compuMethods[param.conversion]
   };
-
-  // For CURVE/MAP: include axis details
   for (const axis of (enriched.axisDefs || [])) {
-    if (axis.axisPtsRef) {
-      axis._axisPts = a2l.axisPts[axis.axisPtsRef];
-    }
+    if (axis.axisPtsRef) axis._axisPts = a2l.axisPts[axis.axisPtsRef];
   }
+  return enriched;
+}
 
+app.get('/api/ecu/:ecu/parameters', async (req, res) => {
+  const a2l = await getA2l(req.params.ecu);
+  if (!a2l) return res.status(404).json({ error: 'Unknown ECU or A2L not found' });
+  res.json(filterParamList(a2l, req.query));
+});
+
+app.get('/api/ecu/:ecu/parameters/:name', async (req, res) => {
+  const a2l = await getA2l(req.params.ecu);
+  if (!a2l) return res.status(404).json({ error: 'Unknown ECU' });
+  const enriched = enrichParam(a2l, req.params.name);
+  if (!enriched) return res.status(404).json({ error: 'Parameter not found' });
   res.json(enriched);
+});
+
+// Project-scoped parameter routes. Use the project's custom A2L when uploaded,
+// else fall back to the ECU default. The frontend always hits these so the
+// switch between default and custom is transparent.
+app.get('/api/projects/:id/parameters', async (req, res) => {
+  const proj = await pm.get(req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Project not found' });
+  const a2l = await getA2lForProject(proj);
+  if (!a2l) return res.status(404).json({ error: 'No A2L (neither project custom nor ECU default)' });
+  res.json(filterParamList(a2l, req.query));
+});
+
+app.get('/api/projects/:id/parameters/:name', async (req, res) => {
+  const proj = await pm.get(req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Project not found' });
+  const a2l = await getA2lForProject(proj);
+  if (!a2l) return res.status(404).json({ error: 'No A2L' });
+  const enriched = enrichParam(a2l, req.params.name);
+  if (!enriched) return res.status(404).json({ error: 'Parameter not found' });
+  res.json(enriched);
+});
+
+// ── Per-project custom A2L upload ─────────────────────────────────────────────
+
+app.post('/api/projects/:id/a2l', upload.single('a2l'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+
+    const customPath = path.join(pm.getProjectDir(proj.id), 'custom.a2l');
+    fs.writeFileSync(customPath, req.file.buffer);
+    projectA2lCache.delete(proj.id);
+
+    // Parse on upload so we fail fast on a malformed file, and seed the cache
+    const parsed = new A2lParser().parse(customPath);
+    projectA2lCache.set(proj.id, parsed);
+
+    await pm.update(proj.id, { customA2lName: req.file.originalname, customA2lUploadedAt: new Date().toISOString() });
+
+    res.json({
+      fileName: req.file.originalname,
+      size: req.file.buffer.length,
+      characteristicsCount: parsed.characteristics.length
+    });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get('/api/projects/:id/a2l/info', async (req, res) => {
+  const proj = await pm.get(req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Project not found' });
+  const customPath = path.join(pm.getProjectDir(proj.id), 'custom.a2l');
+  if (!fs.existsSync(customPath)) return res.json({ custom: false, ecuDefault: proj.ecu });
+  const a2l = await getA2lForProject(proj);
+  res.json({
+    custom: true,
+    fileName: proj.customA2lName || 'custom.a2l',
+    uploadedAt: proj.customA2lUploadedAt,
+    size: fs.statSync(customPath).size,
+    characteristicsCount: a2l?.characteristics?.length || 0
+  });
+});
+
+app.delete('/api/projects/:id/a2l', async (req, res) => {
+  const proj = await pm.get(req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Project not found' });
+  const customPath = path.join(pm.getProjectDir(proj.id), 'custom.a2l');
+  fs.rmSync(customPath, { force: true });
+  projectA2lCache.delete(proj.id);
+  await pm.update(proj.id, { customA2lName: null, customA2lUploadedAt: null });
+  res.json({ ok: true });
 });
 
 // ── ECU list ──────────────────────────────────────────────────────────────────

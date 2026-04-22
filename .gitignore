@@ -4,3 +4,4 @@ ressources/edc16c34/*.cache.json
 *.log
 .env
 tests/screenshots/
+.claude/

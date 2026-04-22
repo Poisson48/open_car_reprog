@@ -55,6 +55,24 @@ export const api = {
   getMapNotes: (id) => req('GET', `/api/projects/${id}/notes`),
   setMapNote: (id, mapName, text) => req('PATCH', `/api/projects/${id}/notes/${encodeURIComponent(mapName)}`, { text }),
 
+  // Project-scoped A2L (custom per project or ECU default)
+  getProjectParams: (id, opts = {}) => {
+    const p = new URLSearchParams();
+    if (opts.search) p.set('search', opts.search);
+    if (opts.type) p.set('type', opts.type);
+    if (opts.offset) p.set('offset', opts.offset);
+    if (opts.limit) p.set('limit', opts.limit);
+    return req('GET', `/api/projects/${id}/parameters?${p}`);
+  },
+  getProjectParam: (id, name) => req('GET', `/api/projects/${id}/parameters/${encodeURIComponent(name)}`),
+  uploadA2l: (id, file) => {
+    const fd = new FormData();
+    fd.append('a2l', file);
+    return req('POST', `/api/projects/${id}/a2l`, fd);
+  },
+  getA2lInfo: (id) => req('GET', `/api/projects/${id}/a2l/info`),
+  deleteA2l: (id) => req('DELETE', `/api/projects/${id}/a2l`),
+
   // WinOLS
   importWinols: (id, file) => {
     const fd = new FormData();

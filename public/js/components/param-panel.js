@@ -1,9 +1,9 @@
 import { api } from '../api.js';
 
 export class ParamPanel {
-  constructor(el, { ecu, onSelect }) {
+  constructor(el, { projectId, onSelect }) {
     this.el = el;
-    this.ecu = ecu;
+    this.projectId = projectId;
     this.onSelect = onSelect;
     this.items = [];
     this.total = 0;
@@ -62,7 +62,7 @@ export class ParamPanel {
   async _load() {
     this.listEl.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
     try {
-      const res = await api.getParams(this.ecu, {
+      const res = await api.getProjectParams(this.projectId, {
         search: this.search,
         type: this.typeFilter,
         offset: 0,
@@ -78,7 +78,7 @@ export class ParamPanel {
   }
 
   async _loadMore() {
-    const res = await api.getParams(this.ecu, {
+    const res = await api.getProjectParams(this.projectId, {
       search: this.search,
       type: this.typeFilter,
       offset: this.offset,
@@ -88,6 +88,13 @@ export class ParamPanel {
     this.offset += res.items.length;
     this.total = res.total;
     this._renderList();
+  }
+
+  // Reload from scratch — used after the project's custom A2L is replaced.
+  async refresh() {
+    this.offset = 0;
+    this.items = [];
+    await this._load();
   }
 
   _renderList() {
