@@ -116,6 +116,7 @@ export class MapEditor {
     this._view3DAz = 45;
     this._view3DEl = 30;
     this._view3DMode = 'value'; // 'value' | 'delta' | 'split' — delta/split only when compareRom is set
+    this._splitView = false;     // split 2D/3D en 2 surfaces côte à côte (actif si compareRom)
     el.classList.add('hidden');
   }
 
@@ -163,17 +164,105 @@ export class MapEditor {
     if (toolbar && !toolbar.querySelector('.map-compare-banner')) {
       const banner = document.createElement('span');
       banner.className = 'map-compare-banner';
-      banner.innerHTML = `📊 Comparaison vs <b>${this.compareLabel}</b> <button class="btn btn-sm" id="map-cmp-list-toggle" title="Liste cliquable des cellules modifiées" style="margin-left:6px">📝 Modifs</button> <a href="#" id="map-exit-compare">✕</a>`;
+      banner.innerHTML = `📊 Comparaison vs <b>${this.compareLabel}</b>
+        <button class="btn btn-sm" id="map-cmp-split-toggle" title="Split view : affiche 2 tableaux/surfaces côte à côte (A | B)" style="margin-left:6px">${this._splitView ? '◻ Mono' : '⇄ Split'}</button>
+        <button class="btn btn-sm" id="map-cmp-list-toggle" title="Liste cliquable des cellules modifiées" style="margin-left:6px">📝 Modifs</button>
+        <a href="#" id="map-exit-compare">✕</a>`;
       toolbar.appendChild(banner);
       banner.querySelector('#map-exit-compare').addEventListener('click', (e) => {
         e.preventDefault();
         this.show(p, this.romData);
       });
       banner.querySelector('#map-cmp-list-toggle').addEventListener('click', () => this._toggleModifsList());
+      banner.querySelector('#map-cmp-split-toggle').addEventListener('click', () => {
+        this._splitView = !this._splitView;
+        // Sync 3D mode
+        if (this._view3D) this._view3DMode = this._splitView ? 'split' : 'value';
+        this._render();
+        // Re-applique les overlays de compare après re-render
+        queueMicrotask(() => this._applyCompareOverlay());
+      });
     }
     if (p.type === 'MAP') this._overlayMapDeltas();
     else if (p.type === 'CURVE') this._overlayCurveDeltas();
     else if (p.type === 'VALUE') this._overlayValueDelta();
+    if (this._splitView && p.type === 'MAP') this._injectSplitTable(p);
+  }
+
+  // En mode split, ajoute à droite du tableau principal un tableau secondaire
+  // lecture-seule représentant les valeurs de compareRom (A). Les deux
+  // tableaux partagent les mêmes axes et sont alignés ligne-à-ligne pour
+  // permettre une comparaison visuelle immédiate.
+  _injectSplitTable(p) {
+    const wrap = this.el.querySelector('#map-table-wrap');
+    if (!wrap || !this.compareRom) return;
+    if (wrap.querySelector('#map-grid-table-A')) return; // déjà injecté
+    const bigEndian = p.byteOrder !== 'LITTLE_ENDIAN';
+    const gridA = this._buildGridFromBuffer(this.compareRom, p);
+    if (!gridA) return;
+
+    const layout = this._computeMapLayout(p, bigEndian);
+    if (!layout) return;
+    const { xCount: nx, yCount: ny, xAddr, yAddr, xDT, yDT, xSz = 2, ySz = 2 } = layout;
+    const axisX = p.axisDefs?.[0] || {};
+    const axisY = p.axisDefs?.[1] || {};
+    const xVals = Array.from({ length: nx }, (_, i) =>
+      toPhys(readValue(this.compareRom, xAddr + i * xSz, xDT || 'SWORD', bigEndian), axisX));
+    const yVals = Array.from({ length: ny }, (_, i) =>
+      toPhys(readValue(this.compareRom, yAddr + i * ySz, yDT || 'SWORD', bigEndian), axisY));
+
+    const all = gridA.flat();
+    const mn = Math.min(...all);
+    const mx = Math.max(...all);
+    const rng = mx - mn || 1;
+    const xHeaders = xVals.map(v => `<th>${v.toFixed(1)}</th>`).join('');
+    const rows = yVals.map((yv, yi) => {
+      const cells = gridA[yi].map(v => {
+        const t = (v - mn) / rng;
+        return `<td style="background:${heatColor(t)};color:${textColorForBg(t)};padding:2px 6px;font-size:11px">${v.toFixed(2)}</td>`;
+      }).join('');
+      return `<tr><th style="font-size:10px;color:var(--accent2)">${yv.toFixed(1)}</th>${cells}</tr>`;
+    }).join('');
+
+    // Transforme le wrap en flex horizontal et injecte la table A à gauche,
+    // la table B (déjà existante) passe à droite.
+    const existingTable = wrap.querySelector('#map-grid-table');
+    const labelA = this.compareLabel || 'A';
+    const container = document.createElement('div');
+    container.style.cssText = 'display:flex;gap:8px;width:100%;height:100%;overflow:auto';
+    const leftWrap = document.createElement('div');
+    leftWrap.style.cssText = 'flex:1;min-width:0;overflow:auto';
+    leftWrap.innerHTML = `
+      <div style="font-size:11px;color:var(--text-dim);padding:4px 6px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2">A : ${labelA} (lecture seule)</div>
+      <table class="map-table" id="map-grid-table-A">
+        <thead><tr>
+          <th style="color:var(--text-dim)">${axisY.unit || 'Y'} \\ ${axisX.unit || 'X'}</th>
+          ${xHeaders}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    const rightWrap = document.createElement('div');
+    rightWrap.style.cssText = 'flex:1;min-width:0;overflow:auto';
+    const rightLabel = document.createElement('div');
+    rightLabel.style.cssText = 'font-size:11px;color:var(--text-dim);padding:4px 6px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2';
+    rightLabel.textContent = 'B : actuel (éditable)';
+    rightWrap.appendChild(rightLabel);
+    if (existingTable) rightWrap.appendChild(existingTable);
+    container.append(leftWrap, rightWrap);
+    wrap.innerHTML = '';
+    wrap.appendChild(container);
+
+    // Scroll synchronisé A↔B (ligne)
+    const linkScroll = (src, dst) => {
+      src.addEventListener('scroll', () => {
+        if (src._syncing) return;
+        dst._syncing = true;
+        dst.scrollTop = src.scrollTop;
+        setTimeout(() => { dst._syncing = false; }, 16);
+      });
+    };
+    linkScroll(leftWrap, rightWrap);
+    linkScroll(rightWrap, leftWrap);
   }
 
   // Liste des cellules qui différent entre romData et compareRom, cliquable
@@ -256,18 +345,32 @@ export class MapEditor {
       row.addEventListener('click', () => {
         const xi = parseInt(row.dataset.xi);
         const yi = parseInt(row.dataset.yi);
-        const sel = `input[data-xi="${xi}"][data-yi="${yi}"]`;
-        const inp = this.el.querySelector(sel);
+        // Scope : le tableau B éditable (map-grid-table), pas le tableau A
+        // (map-grid-table-A) en split mode. Pour les CURVE, les inputs n'ont
+        // pas de data-yi, donc selector sans y quand yi=0.
+        const grid = this.el.querySelector('#map-grid-table');
+        if (!grid) return;
+        let inp = grid.querySelector(`input[data-xi="${xi}"][data-yi="${yi}"]`);
+        if (!inp) inp = grid.querySelector(`input[data-xi="${xi}"]`); // CURVE fallback
         if (!inp) return;
-        inp.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        inp.focus();
-        // Highlight temporaire
+        inp.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+        // focus après scroll (sinon focus annule le scroll comportement visuel)
+        setTimeout(() => inp.focus(), 350);
+        // Flash doré très visible : 1.5 s, shadow + outline + glow
         const td = inp.closest('td');
         if (td) {
-          const prev = td.style.outline;
+          const prevOutline = td.style.outline;
+          const prevShadow = td.style.boxShadow;
+          const prevTransition = td.style.transition;
+          td.style.transition = 'outline 0.1s, box-shadow 0.1s';
           td.style.outline = '3px solid #ffd700';
           td.style.outlineOffset = '-3px';
-          setTimeout(() => { td.style.outline = prev; }, 1200);
+          td.style.boxShadow = 'inset 0 0 14px 4px rgba(255, 215, 0, 0.7)';
+          setTimeout(() => {
+            td.style.outline = prevOutline;
+            td.style.boxShadow = prevShadow;
+            td.style.transition = prevTransition;
+          }, 1500);
         }
       });
     });
@@ -1458,6 +1561,32 @@ export class MapEditor {
 
   // ── Heatmap Canvas ──────────────────────────────────────────────────────────
 
+  // Rendu d'un heatmap "quadrant" à une position (x, y) et taille (w, h)
+  // donnée du canvas. Utilisé par le mode split 2D.
+  _drawHeatmapQuadrant(ctx, x0, y0, w, h, grid, mn, mx, title) {
+    const ny = grid.length;
+    const nx = grid[0]?.length || 0;
+    if (!nx || !ny) return;
+    const rng = mx - mn || 1;
+    const LH = 16;
+    const cellW = w / nx;
+    const cellH = (h - LH) / ny;
+    for (let yi = 0; yi < ny; yi++) {
+      for (let xi = 0; xi < nx; xi++) {
+        const t = (grid[yi][xi] - mn) / rng;
+        ctx.fillStyle = heatColor(t);
+        ctx.fillRect(x0 + xi * cellW, y0 + LH + yi * cellH, cellW + 0.5, cellH + 0.5);
+      }
+    }
+    if (title) {
+      ctx.fillStyle = '#ddd';
+      ctx.font = '10px Consolas, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(title, x0 + w / 2, y0 + 2);
+    }
+  }
+
   _drawHeatmap(xVals, yVals, grid, p) {
     const canvas = this.el.querySelector('#map-heatmap');
     if (!canvas) return;
@@ -1467,6 +1596,27 @@ export class MapEditor {
     const H = wrap.clientHeight || 200;
     canvas.width = W;
     canvas.height = H;
+
+    // Split view 2D heatmap : 2 heatmaps côte à côte avec le même minV/maxV
+    // pour que les couleurs soient directement comparables à l'œil.
+    if (this._splitView && this.compareRom && p.type === 'MAP') {
+      const gridA = this._buildGridFromBuffer(this.compareRom, p);
+      if (gridA && gridA.length && gridA[0]?.length) {
+        const allA = gridA.flat();
+        const allB = grid.flat();
+        const mn = Math.min(Math.min(...allA), Math.min(...allB));
+        const mx = Math.max(Math.max(...allA), Math.max(...allB));
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = '#1e1e1e';
+        ctx.fillRect(0, 0, W, H);
+        this._drawHeatmapQuadrant(ctx, 0, 0, W / 2, H, gridA, mn, mx, this.compareLabel || 'A');
+        this._drawHeatmapQuadrant(ctx, W / 2, 0, W / 2, H, grid, mn, mx, 'actuel (B)');
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke();
+        return;
+      }
+    }
 
     const yCount = grid.length;
     const xCount = grid[0]?.length || 0;
