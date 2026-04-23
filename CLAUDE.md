@@ -70,7 +70,7 @@ docs/
 | GET | /api/ecu | Liste des 13 ECUs du catalog |
 | GET | /api/projects | Liste projets |
 | POST | /api/projects | Créer projet |
-| GET/PATCH/DELETE | /api/projects/:id | CRUD projet (champs : name, vehicle, immat, year, ecu, description, displayAddressBase) |
+| GET/PATCH/DELETE | /api/projects/:id | CRUD projet (champs : name, vehicle, immat, year, ecu, description, displayAddressBase, units) |
 | POST | /api/projects/:id/rom | Importer ROM |
 | GET | /api/projects/:id/rom | Télécharger ROM (query `?commit=<hash>` → version à ce commit) |
 | GET | /api/projects/:id/rom/backup | ROM originale |
@@ -107,6 +107,8 @@ docs/
 | GET | /api/projects/:id/templates | Templates compatibles avec l'ECU du projet |
 | POST | /api/projects/:id/apply-template/:tid | Applique un template (Stage 1 + Pop&Bang + auto-mods) en un call |
 | GET | /api/projects/:id/auto-find-maps | Scan heuristique de la ROM → liste des candidats MAPs triés par score (cross-ref A2L inclus) |
+| GET | /api/projects/:id/report.html | Rapport HTML standalone (Ctrl-P → PDF) des cartes modifiées vs ROM originale |
+| POST | /api/templates/:tid/batch-apply | Applique un template à N projets (body `{ projectIds, commitMessage? }`) — auto-commit par projet |
 
 ## Format ROM — Kf_Xs16_Ys16_Ws16 (Bosch DAMOS)
 
@@ -259,9 +261,37 @@ moment du flash. Idem KESS / Galletto / CMD / bitbox. L'éditeur produit un `.bi
 tool de flashing sanitise au flash. **Ne pas implémenter de checksum verify/fix dans l'app.**
 Script `tests/scripts/analyze-checksums.js` gardé en référence forensic.
 
+## Session Avril 2026 — passe finale v1
+
+Corrections et features ajoutées au cours d'une seule session, dans l'ordre :
+
+1. **Fix ±% muets sur petites valeurs** (`_applyPct`) — le raw reçoit maintenant un
+   bump de ±1 quand l'arrondi retomberait sur lui-même, sauf sur les cellules à 0.
+2. **Auto-flush avant Commit** (`flushPendingEdits` dans project.js, passé en
+   `onBeforeCommit` à GitPanel) — plus besoin de Ctrl-S avant 💾.
+3. **✨ suggest-msg** flush d'abord puis `avgChange()` signé côté map-differ pour
+   ne pas inverser le signe du % sur les cellules négatives.
+4. **Goto hex validation** — regex stricte + borne ROM + classe `input-error`.
+5. **Empty state search home** (déjà présent, couvert par `tests/home-empty-state.test.js`).
+6. **Filtre / toggle hors A2L dans Auto-find** (110+ candidats sur Bosch plein).
+7. **Delete branche via 🗑** (déjà présent dans branch-switcher, couvert par tests).
+8. **Feedback 0-cellules** dans `#map-sel-count` flashé 2.5 s.
+9. **Toggle unités** `Nm ↔ lb·ft / °C ↔ °F` — preference meta projet, conversion
+   display-only (src/units.js), write-back converti en phys A2L.
+10. **Rapport HTML** `/api/projects/:id/report.html` imprimable en PDF depuis le
+    navigateur, aucun puppeteer.
+11. **Batch apply** d'un template à N projets — modal home + endpoint
+    `POST /api/templates/:tid/batch-apply`.
+12. **Mode 3D delta réel** (heights = delta, couleurs divergentes) + bouton
+    **« Δ vs parent »** un clic depuis la toolbar du map editor.
+13. **Mode 3D overlay** — surface courante remplie + ref en wireframe blanc dans
+    la même box 3D.
+
+36 tests Playwright passent. Walkthrough complet `tests/walkthrough.test.js` à 0 findings.
+
 ## Points à améliorer / bugs connus
 
-- Les ECUs autres qu'edc16c34 n'ont pas d'adresses Stage 1 / pop&bang (à compléter)
+- Les ECUs autres qu'edc16c34 n'ont pas d'adresses Stage 1 / pop&bang (à compléter après v1)
 - Pas encore de déploiement serveur (hébergement mutualisé OVH incompatible Node.js,
   VPS prévu ultérieurement sur fish-technics.fr)
 
