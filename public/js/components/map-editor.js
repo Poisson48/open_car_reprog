@@ -115,7 +115,7 @@ export class MapEditor {
     this._view3D = false;
     this._view3DAz = 45;
     this._view3DEl = 30;
-    this._view3DMode = 'value'; // 'value' | 'delta' — delta only active when compareRom is set
+    this._view3DMode = 'value'; // 'value' | 'delta' | 'split' — delta/split only when compareRom is set
     el.classList.add('hidden');
   }
 
@@ -163,16 +163,114 @@ export class MapEditor {
     if (toolbar && !toolbar.querySelector('.map-compare-banner')) {
       const banner = document.createElement('span');
       banner.className = 'map-compare-banner';
-      banner.innerHTML = `📊 Comparaison vs <b>${this.compareLabel}</b> <a href="#" id="map-exit-compare">✕</a>`;
+      banner.innerHTML = `📊 Comparaison vs <b>${this.compareLabel}</b> <button class="btn btn-sm" id="map-cmp-list-toggle" title="Liste cliquable des cellules modifiées" style="margin-left:6px">📝 Modifs</button> <a href="#" id="map-exit-compare">✕</a>`;
       toolbar.appendChild(banner);
       banner.querySelector('#map-exit-compare').addEventListener('click', (e) => {
         e.preventDefault();
         this.show(p, this.romData);
       });
+      banner.querySelector('#map-cmp-list-toggle').addEventListener('click', () => this._toggleModifsList());
     }
     if (p.type === 'MAP') this._overlayMapDeltas();
     else if (p.type === 'CURVE') this._overlayCurveDeltas();
     else if (p.type === 'VALUE') this._overlayValueDelta();
+  }
+
+  // Liste des cellules qui différent entre romData et compareRom, cliquable
+  // pour scroller et highlight la cellule dans le tableau 2D.
+  _toggleModifsList() {
+    const existing = document.getElementById('map-cmp-list-modal');
+    if (existing) { existing.remove(); return; }
+    const p = this.param;
+    const bigEndian = p.byteOrder !== 'LITTLE_ENDIAN';
+    const diffs = [];
+
+    if (p.type === 'MAP') {
+      const { xCount: nx, yCount: ny, dataAddr, valDT, valSz, xAddr, yAddr, xDT, ySz, yDT, xSz } = this._computeMapLayout(p, bigEndian);
+      if (nx <= 0 || ny <= 0) return;
+      const axisX = p.axisDefs?.[0] || {};
+      const axisY = p.axisDefs?.[1] || {};
+      for (let yi = 0; yi < ny; yi++) {
+        for (let xi = 0; xi < nx; xi++) {
+          const off = dataAddr + (yi * nx + xi) * valSz;
+          const cur = toPhys(readValue(this.romData, off, valDT, bigEndian), p);
+          const oth = toPhys(readValue(this.compareRom, off, valDT, bigEndian), p);
+          if (cur === oth) continue;
+          const xVal = toPhys(readValue(this.romData, xAddr + xi * (xSz || 2), xDT || 'SWORD', bigEndian), axisX);
+          const yVal = toPhys(readValue(this.romData, yAddr + yi * (ySz || 2), yDT || 'SWORD', bigEndian), axisY);
+          diffs.push({ xi, yi, xVal, yVal, before: oth, after: cur, delta: cur - oth });
+        }
+      }
+    } else if (p.type === 'CURVE') {
+      const layout = this._computeCurveLayout(p, bigEndian);
+      const { dataAddr, valDT, valSz, xAddr, xDT, xSz } = layout;
+      const axis = p.axisDefs?.[0] || {};
+      const xCount = layout.xCount || (p.axisDefs?.[0]?.maxAxisPoints || 0);
+      for (let xi = 0; xi < xCount; xi++) {
+        const off = dataAddr + xi * valSz;
+        const cur = toPhys(readValue(this.romData, off, valDT, bigEndian), p);
+        const oth = toPhys(readValue(this.compareRom, off, valDT, bigEndian), p);
+        if (cur === oth) continue;
+        const xVal = toPhys(readValue(this.romData, xAddr + xi * (xSz || 2), xDT || 'SWORD', bigEndian), axis);
+        diffs.push({ xi, yi: 0, xVal, yVal: null, before: oth, after: cur, delta: cur - oth });
+      }
+    }
+
+    // Sort by magnitude of delta desc (plus grosses modifs en haut)
+    diffs.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+    const modal = document.createElement('div');
+    modal.id = 'map-cmp-list-modal';
+    modal.style.cssText = 'position:fixed;right:12px;top:80px;width:360px;max-height:60vh;background:var(--panel);border:1px solid var(--border);border-radius:4px;box-shadow:0 4px 16px rgba(0,0,0,0.5);z-index:100;display:flex;flex-direction:column';
+    modal.innerHTML = `
+      <div style="display:flex;align-items:center;padding:8px;border-bottom:1px solid var(--border);gap:8px">
+        <strong style="flex:1;font-size:12px">Cellules modifiées (${diffs.length})</strong>
+        <button class="btn btn-sm" id="cmp-list-close">✕</button>
+      </div>
+      <div id="cmp-list-body" style="overflow-y:auto;flex:1;font-family:monospace;font-size:11px"></div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelector('#cmp-list-close').addEventListener('click', () => modal.remove());
+
+    const body = modal.querySelector('#cmp-list-body');
+    if (!diffs.length) {
+      body.innerHTML = '<div style="padding:12px;color:var(--text-dim)">Aucune cellule ne diffère.</div>';
+      return;
+    }
+    body.innerHTML = diffs.map((d, i) => {
+      const color = d.delta > 0 ? '#4ec9b0' : '#f44747';
+      const coords = d.yVal !== null
+        ? `[${d.xVal.toFixed(0)},${d.yVal.toFixed(0)}]`
+        : `[${d.xVal.toFixed(0)}]`;
+      return `
+        <div class="cmp-list-row" data-xi="${d.xi}" data-yi="${d.yi}" style="padding:4px 8px;border-bottom:1px solid var(--border);cursor:pointer">
+          <span style="color:var(--text-dim)">${coords}</span>
+          <span style="margin-left:8px">${d.before.toFixed(2)} → ${d.after.toFixed(2)}</span>
+          <span style="color:${color};margin-left:8px">${d.delta > 0 ? '+' : ''}${d.delta.toFixed(2)}</span>
+        </div>`;
+    }).join('');
+
+    body.querySelectorAll('.cmp-list-row').forEach(row => {
+      row.addEventListener('mouseover', () => { row.style.background = 'var(--bg2)'; });
+      row.addEventListener('mouseout', () => { row.style.background = ''; });
+      row.addEventListener('click', () => {
+        const xi = parseInt(row.dataset.xi);
+        const yi = parseInt(row.dataset.yi);
+        const sel = `input[data-xi="${xi}"][data-yi="${yi}"]`;
+        const inp = this.el.querySelector(sel);
+        if (!inp) return;
+        inp.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        inp.focus();
+        // Highlight temporaire
+        const td = inp.closest('td');
+        if (td) {
+          const prev = td.style.outline;
+          td.style.outline = '3px solid #ffd700';
+          td.style.outlineOffset = '-3px';
+          setTimeout(() => { td.style.outline = prev; }, 1200);
+        }
+      });
+    });
   }
 
   _overlayMapDeltas() {
@@ -255,7 +353,7 @@ export class MapEditor {
         <span style="font-size:11px;color:var(--text-dim)">${p.type} · ${p.dataType || ''} · ${p.unit || ''} · 0x${p.address.toString(16).toUpperCase()}</span>
         ${p.type === 'MAP' ? `<button class="btn btn-sm" id="map-toggle-3d" style="margin-left:4px" title="Vue 3D / 2D">${this._view3D ? '▦ 2D' : '🗻 3D'}</button>
         <button class="btn btn-sm map-3d-only" id="map-3d-reset" title="Réinitialiser la vue" style="display:${this._view3D ? '' : 'none'}">⟳</button>
-        <button class="btn btn-sm map-3d-only" id="map-3d-delta" title="Colorer la surface par delta vs compare" style="display:${this._view3D && this.compareRom ? '' : 'none'}">${this._view3DMode === 'delta' ? '🎨 Valeur' : 'Δ Delta'}</button>` : ''}
+        <button class="btn btn-sm map-3d-only" id="map-3d-mode" title="Mode 3D : Valeur / Delta / Split (2 surfaces côte à côte)" style="display:${this._view3D && this.compareRom ? '' : 'none'}">${this._view3DMode === 'value' ? 'Δ Delta' : this._view3DMode === 'delta' ? '⇄ Split' : '🎨 Valeur'}</button>` : ''}
         <button class="btn btn-sm" id="map-close" style="margin-left:8px">✕</button>
       </div>
 
@@ -324,6 +422,12 @@ export class MapEditor {
       this._view3DAz = 45;
       this._view3DEl = 30;
       if (this._grid) this._drawChart(this._xVals, this._yVals, this._grid, p);
+    });
+    this.el.querySelector('#map-3d-mode')?.addEventListener('click', () => {
+      // cycle value → delta → split → value
+      const next = { value: 'delta', delta: 'split', split: 'value' };
+      this._view3DMode = next[this._view3DMode] || 'value';
+      this._render();
     });
 
     // Selection bar buttons
@@ -1040,6 +1144,121 @@ export class MapEditor {
     else this._drawHeatmap(xVals, yVals, grid, p);
   }
 
+  // Construit un grid[yCount][xCount] depuis un buffer arbitraire, en
+  // réutilisant le layout résolu pour this.param. Utilisé par le mode 3D
+  // split pour générer les 2 surfaces (compareRom + romData) dans la même
+  // topologie.
+  _buildGridFromBuffer(buffer, p) {
+    const bigEndian = p.byteOrder !== 'LITTLE_ENDIAN';
+    const layout = this._computeMapLayout(p, bigEndian);
+    if (!layout) return null;
+    const { xCount, yCount, dataAddr, valDT, valSz } = layout;
+    if (xCount <= 0 || yCount <= 0 || xCount > 256 || yCount > 256) return null;
+    const grid = [];
+    for (let yi = 0; yi < yCount; yi++) {
+      const row = [];
+      for (let xi = 0; xi < xCount; xi++) {
+        const off = dataAddr + (yi * xCount + xi) * valSz;
+        if (off + valSz > buffer.length) { row.push(0); continue; }
+        row.push(toPhys(readValue(buffer, off, valDT, bigEndian), p));
+      }
+      grid.push(row);
+    }
+    return grid;
+  }
+
+  // Rendu d'une seule surface 3D à une position (cx, cy) avec une échelle
+  // donnée. minV/maxV doivent être passés (pour normaliser Z entre 2 surfaces
+  // en mode split). `W, H` est la taille de la région dans laquelle dessiner
+  // (ne pas clearRect, suppose que ctx est déjà initialisé).
+  _renderSurfaceAt(ctx, opts) {
+    const { cx, cy, scale, grid, p, minV, maxV, W, H, title, offsetX = 0 } = opts;
+    const ny = grid.length;
+    const nx = grid[0]?.length || 0;
+    if (!nx || !ny) return;
+    const range = maxV - minV || 1;
+
+    const nX = xi => nx > 1 ? (xi / (nx - 1) - 0.5) : 0;
+    const nY = yi => ny > 1 ? (yi / (ny - 1) - 0.5) : 0;
+    const nZ = v => ((v - minV) / range - 0.5) * 0.6;
+
+    const az = this._view3DAz * Math.PI / 180;
+    const el = this._view3DEl * Math.PI / 180;
+    const cA = Math.cos(az), sA = Math.sin(az);
+    const cE = Math.cos(el), sE = Math.sin(el);
+    const project = (x, y, z) => {
+      const x1 = x * cA + y * sA;
+      const y1 = -x * sA + y * cA;
+      const y2 = y1 * cE + z * sE;
+      const z2 = -y1 * sE + z * cE;
+      return { sx: cx + x1 * scale, sy: cy - z2 * scale, depth: y2 };
+    };
+
+    // Vertices
+    const verts = [];
+    for (let yi = 0; yi < ny; yi++) {
+      const row = [];
+      for (let xi = 0; xi < nx; xi++) row.push(project(nX(xi), nY(yi), nZ(grid[yi][xi])));
+      verts.push(row);
+    }
+
+    // Floor grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 0.5;
+    const floorZ = -0.3;
+    for (let xi = 0; xi < nx; xi++) {
+      const a = project(nX(xi), nY(0), floorZ);
+      const b = project(nX(xi), nY(ny - 1), floorZ);
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+    }
+    for (let yi = 0; yi < ny; yi++) {
+      const a = project(nX(0), nY(yi), floorZ);
+      const b = project(nX(nx - 1), nY(yi), floorZ);
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+    }
+
+    // Quads back-to-front
+    const quads = [];
+    for (let yi = 0; yi < ny - 1; yi++) {
+      for (let xi = 0; xi < nx - 1; xi++) {
+        const v00 = verts[yi][xi];
+        const v10 = verts[yi][xi + 1];
+        const v11 = verts[yi + 1][xi + 1];
+        const v01 = verts[yi + 1][xi];
+        const avgV = (grid[yi][xi] + grid[yi][xi + 1] + grid[yi + 1][xi + 1] + grid[yi + 1][xi]) / 4;
+        quads.push({
+          pts: [v00, v10, v11, v01],
+          t: (avgV - minV) / range,
+          depth: (v00.depth + v10.depth + v11.depth + v01.depth) / 4
+        });
+      }
+    }
+    quads.sort((a, b) => b.depth - a.depth);
+
+    for (const q of quads) {
+      ctx.fillStyle = heatColor(q.t);
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(q.pts[0].sx, q.pts[0].sy);
+      ctx.lineTo(q.pts[1].sx, q.pts[1].sy);
+      ctx.lineTo(q.pts[2].sx, q.pts[2].sy);
+      ctx.lineTo(q.pts[3].sx, q.pts[3].sy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Title at top
+    if (title) {
+      ctx.fillStyle = '#ddd';
+      ctx.font = '11px Consolas, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(title, cx, 4);
+    }
+  }
+
   // ── 3D surface ──────────────────────────────────────────────────────────────
 
   _draw3D(xVals, yVals, grid, p) {
@@ -1050,6 +1269,46 @@ export class MapEditor {
     const H = wrap.clientHeight || 260;
     canvas.width = W;
     canvas.height = H;
+
+    // Mode split : 2 surfaces côte à côte (A = compareRom, B = romData).
+    // Axes 3D synchronisés (az/el communs), échelle Z commune (même range
+    // min/max) pour que les hauteurs soient visuellement comparables.
+    if (this._view3DMode === 'split' && this.compareRom) {
+      const gridA = this._buildGridFromBuffer(this.compareRom, p);
+      if (gridA) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = '#1e1e1e';
+        ctx.fillRect(0, 0, W, H);
+
+        // Range commun aux 2 grids pour échelle Z partagée
+        const allA = gridA.flat();
+        const allB = grid.flat();
+        const minV = Math.min(...allA, ...allB);
+        const maxV = Math.max(...allA, ...allB);
+
+        // 2 half-canvases
+        const halfW = W / 2;
+        this._renderSurfaceAt(ctx, {
+          cx: halfW / 2, cy: H / 2 + H * 0.06,
+          scale: Math.min(halfW, H) * 0.6,
+          grid: gridA, p, minV, maxV, W: halfW, H,
+          title: this.compareLabel || 'A',
+        });
+        this._renderSurfaceAt(ctx, {
+          cx: halfW + halfW / 2, cy: H / 2 + H * 0.06,
+          scale: Math.min(halfW, H) * 0.6,
+          grid, p, minV, maxV, W: halfW, H,
+          title: 'actuel (B)',
+          offsetX: halfW,
+        });
+
+        // Divider
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.beginPath(); ctx.moveTo(halfW, 0); ctx.lineTo(halfW, H); ctx.stroke();
+        return;
+      }
+    }
 
     const ny = grid.length;
     const nx = grid[0]?.length || 0;
