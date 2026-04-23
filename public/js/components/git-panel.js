@@ -1,11 +1,12 @@
 import { api } from '../api.js';
 
 export class GitPanel {
-  constructor(el, { projectId, onRestore, onMapClick }) {
+  constructor(el, { projectId, onRestore, onMapClick, onCompareRefsMap }) {
     this.el = el;
     this.projectId = projectId;
     this.onRestore = onRestore;
     this.onMapClick = onMapClick;
+    this.onCompareRefsMap = onCompareRefsMap;
     this.entries = [];
     this.activeHash = null;
     this._build();
@@ -453,17 +454,21 @@ export class GitPanel {
     container.querySelectorAll('.map-diff-row').forEach(row => {
       row.addEventListener('click', async () => {
         const name = row.getAttribute('data-name');
+        console.log('[compare-refs] click row', name, 'refA', refA, 'refB', refB);
         overlay.remove();
-        // Load both bufA and bufB, then open map editor in compare mode
         try {
           const [bufA, bufB] = await Promise.all([
-            fetch(`/api/projects/${this.projectId}/rom?commit=${encodeURIComponent(refA)}`).then(r => r.arrayBuffer()),
-            fetch(`/api/projects/${this.projectId}/rom?commit=${encodeURIComponent(refB)}`).then(r => r.arrayBuffer()),
+            fetch(`/api/projects/${this.projectId}/rom?commit=${encodeURIComponent(refA)}`).then(r => { if (!r.ok) throw new Error('fetch A ' + r.status); return r.arrayBuffer(); }),
+            fetch(`/api/projects/${this.projectId}/rom?commit=${encodeURIComponent(refB)}`).then(r => { if (!r.ok) throw new Error('fetch B ' + r.status); return r.arrayBuffer(); }),
           ]);
+          console.log('[compare-refs] buffers loaded', bufA.byteLength, bufB.byteLength, 'hasCallback:', !!this.onCompareRefsMap);
           if (this.onCompareRefsMap) {
             this.onCompareRefsMap(name, new Uint8Array(bufA), new Uint8Array(bufB), refA, refB);
+          } else {
+            console.warn('[compare-refs] onCompareRefsMap callback not set on GitPanel instance');
           }
         } catch (e) {
+          console.error('[compare-refs] failed:', e);
           alert('Chargement des ROMs échoué : ' + e.message);
         }
       });
