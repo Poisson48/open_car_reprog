@@ -461,7 +461,12 @@ export class MapEditor {
         ${p.type === 'MAP' ? `<button class="btn btn-sm" id="map-toggle-3d" style="margin-left:4px" title="Vue 3D / 2D">${this._view3D ? '▦ 2D' : '🗻 3D'}</button>
         <button class="btn btn-sm map-3d-only" id="map-3d-reset" title="Réinitialiser la vue" style="display:${this._view3D ? '' : 'none'}">⟳</button>
         ${this.onLoadParentCompare ? `<button class="btn btn-sm" id="map-cmp-parent" title="Charger le commit parent de HEAD comme référence pour la comparaison" style="display:${this.compareRom ? 'none' : ''}">Δ vs parent</button>` : ''}
-        <button class="btn btn-sm map-3d-only" id="map-3d-mode" title="Mode 3D : Valeur / Delta / Split (2 surfaces côte à côte)" style="display:${this._view3D && this.compareRom ? '' : 'none'}">${this._view3DMode === 'value' ? 'Δ Delta' : this._view3DMode === 'delta' ? '⇄ Split' : '🎨 Valeur'}</button>` : ''}
+        <button class="btn btn-sm map-3d-only" id="map-3d-mode" title="Mode 3D : Valeur / Delta / Split côte à côte / Overlay wireframe" style="display:${this._view3D && this.compareRom ? '' : 'none'}">${
+          this._view3DMode === 'value' ? 'Δ Delta'
+          : this._view3DMode === 'delta' ? '⇄ Split'
+          : this._view3DMode === 'split' ? '▚ Overlay'
+          : '🎨 Valeur'
+        }</button>` : ''}
         <button class="btn btn-sm" id="map-close" style="margin-left:8px">✕</button>
       </div>
 
@@ -532,8 +537,8 @@ export class MapEditor {
       if (this._grid) this._drawChart(this._xVals, this._yVals, this._grid, p);
     });
     this.el.querySelector('#map-3d-mode')?.addEventListener('click', () => {
-      // cycle value → delta → split → value
-      const next = { value: 'delta', delta: 'split', split: 'value' };
+      // cycle value → delta → split → overlay → value
+      const next = { value: 'delta', delta: 'split', split: 'overlay', overlay: 'value' };
       this._view3DMode = next[this._view3DMode] || 'value';
       this._render();
     });
@@ -1431,6 +1436,121 @@ export class MapEditor {
     }
   }
 
+  // Overlay : 2 surfaces dans la même box 3D. gridRef rendu en wireframe
+  // blanc (pas de fill) pour voir à travers ; gridCur en surface remplie
+  // avec le heatmap standard. Même normalisation Z que les autres modes.
+  _drawOverlay3D(canvas, W, H, gridCur, gridRef, nx, ny, minV, maxV) {
+    const range = maxV - minV || 1;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#1e1e1e';
+    ctx.fillRect(0, 0, W, H);
+
+    const nX = xi => nx > 1 ? (xi / (nx - 1) - 0.5) : 0;
+    const nY = yi => ny > 1 ? (yi / (ny - 1) - 0.5) : 0;
+    const nZ = v => ((v - minV) / range - 0.5) * 0.6;
+
+    const az = this._view3DAz * Math.PI / 180;
+    const el = this._view3DEl * Math.PI / 180;
+    const cA = Math.cos(az), sA = Math.sin(az);
+    const cE = Math.cos(el), sE = Math.sin(el);
+    const scale = Math.min(W, H) * 0.7;
+    const cx = W / 2, cy = H / 2 + H * 0.06;
+    const project = (x, y, z) => {
+      const x1 = x * cA + y * sA;
+      const y1 = -x * sA + y * cA;
+      const y2 = y1 * cE + z * sE;
+      const z2 = -y1 * sE + z * cE;
+      return { sx: cx + x1 * scale, sy: cy - z2 * scale, depth: y2 };
+    };
+
+    const projectGrid = (grid) => {
+      const v = [];
+      for (let yi = 0; yi < ny; yi++) {
+        const row = [];
+        for (let xi = 0; xi < nx; xi++) row.push(project(nX(xi), nY(yi), nZ(grid[yi][xi])));
+        v.push(row);
+      }
+      return v;
+    };
+
+    const vertsCur = projectGrid(gridCur);
+    const vertsRef = projectGrid(gridRef);
+
+    // Floor
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 0.5;
+    const floorZ = -0.3;
+    for (let xi = 0; xi < nx; xi++) {
+      const a = project(nX(xi), nY(0), floorZ);
+      const b = project(nX(xi), nY(ny - 1), floorZ);
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+    }
+    for (let yi = 0; yi < ny; yi++) {
+      const a = project(nX(0), nY(yi), floorZ);
+      const b = project(nX(nx - 1), nY(yi), floorZ);
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+    }
+
+    // Build quads for current surface (filled) AND reference wires, with
+    // shared depth sort so they interleave correctly when surfaces cross.
+    const prims = [];
+    for (let yi = 0; yi < ny - 1; yi++) {
+      for (let xi = 0; xi < nx - 1; xi++) {
+        const v00 = vertsCur[yi][xi], v10 = vertsCur[yi][xi + 1];
+        const v11 = vertsCur[yi + 1][xi + 1], v01 = vertsCur[yi + 1][xi];
+        const avgV = (gridCur[yi][xi] + gridCur[yi][xi + 1] + gridCur[yi + 1][xi + 1] + gridCur[yi + 1][xi]) / 4;
+        prims.push({
+          kind: 'fill',
+          pts: [v00, v10, v11, v01],
+          t: (avgV - minV) / range,
+          depth: (v00.depth + v10.depth + v11.depth + v01.depth) / 4
+        });
+      }
+    }
+    for (let yi = 0; yi < ny - 1; yi++) {
+      for (let xi = 0; xi < nx - 1; xi++) {
+        const v00 = vertsRef[yi][xi], v10 = vertsRef[yi][xi + 1];
+        const v11 = vertsRef[yi + 1][xi + 1], v01 = vertsRef[yi + 1][xi];
+        prims.push({
+          kind: 'wire',
+          pts: [v00, v10, v11, v01],
+          depth: (v00.depth + v10.depth + v11.depth + v01.depth) / 4
+        });
+      }
+    }
+    prims.sort((a, b) => b.depth - a.depth);
+
+    for (const q of prims) {
+      ctx.beginPath();
+      ctx.moveTo(q.pts[0].sx, q.pts[0].sy);
+      for (let i = 1; i < q.pts.length; i++) ctx.lineTo(q.pts[i].sx, q.pts[i].sy);
+      ctx.closePath();
+      if (q.kind === 'fill') {
+        ctx.fillStyle = heatColor(q.t);
+        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+        ctx.lineWidth = 0.6;
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.lineWidth = 0.9;
+        ctx.stroke();
+      }
+    }
+
+    // Legend
+    ctx.fillStyle = '#ddd';
+    ctx.font = '11px Consolas, monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('rempli : actuel', 12, 10);
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 0.9;
+    ctx.beginPath(); ctx.moveTo(12, 30); ctx.lineTo(28, 30); ctx.stroke();
+    ctx.fillText('wireframe : ' + (this.compareLabel || 'réf.'), 34, 24);
+  }
+
   // ── 3D surface ──────────────────────────────────────────────────────────────
 
   _draw3D(xVals, yVals, grid, p) {
@@ -1485,6 +1605,18 @@ export class MapEditor {
     const ny = grid.length;
     const nx = grid[0]?.length || 0;
     if (!nx || !ny) return;
+
+    // Mode overlay : compareRom en wireframe blanc + surface courante remplie.
+    // Utile pour voir "qu'est-ce qui a bougé et où" sans éparpiller en 2 volets.
+    if (this._view3DMode === 'overlay' && this.compareRom) {
+      const gridRef = this._buildGridFromBuffer(this.compareRom, p);
+      if (gridRef) {
+        const sharedMin = Math.min(...grid.flat(), ...gridRef.flat());
+        const sharedMax = Math.max(...grid.flat(), ...gridRef.flat());
+        this._drawOverlay3D(canvas, W, H, grid, gridRef, nx, ny, sharedMin, sharedMax);
+        return;
+      }
+    }
 
     // Mode delta : hauteurs = (actuel - compareRom), couleurs divergentes
     // (rouge = diminution, gris = inchangé, vert = augmentation). Une surface
