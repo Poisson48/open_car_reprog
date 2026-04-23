@@ -10,20 +10,21 @@ const URL = process.env.APP_URL || 'http://localhost:3001';
 const OUT = path.join(__dirname, 'screenshots');
 fs.mkdirSync(OUT, { recursive: true });
 
-// edc16c34 Stage 1 map addresses (from src/ecu-catalog.js)
+// edc16c34 Stage 1 map addresses (from src/ecu-catalog.js — corrigées dans
+// 589dd1b: les anciennes 0x16D6C4 etc. pointaient sur du padding 0xFF).
 const S1_ADDRS = {
-  AccPed_trqEngHiGear_MAP: 0x16D6C4,
-  AccPed_trqEngLoGear_MAP: 0x16DA04,
-  FMTC_trq2qBas_MAP:       0x1760A4,
-  Rail_pSetPointBase_MAP:  0x17A4A4,
-  EngPrt_trqAPSLim_MAP:    0x1758E4,
+  AccPed_trqEngHiGear_MAP: 0x1C1448,
+  AccPed_trqEngLoGear_MAP: 0x1C168C,
+  FMTC_trq2qBas_MAP:       0x1C9AAA,
+  Rail_pSetPointBase_MAP:  0x1E726C,
+  EngPrt_trqAPSLim_MAP:    0x1C8838,
 };
 
 // DPF pattern placement (synthetic) and address-based auto-mods
 const DPF_OFFSET = 0x100000;
 const DPF_PATTERN = [0x7F,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x01,0x01,0x00,0x0C,0x3B,0x0D,0x03];
 const DPF_DTC_ADDR = 0x1E9DD4;
-const EGR_ADDR = 0x1C4C4E;
+const EGR_ADDR = 0x1C41B8; // AirCtl_nMin_C (post 589dd1b)
 const POPBANG_RPM_ADDR = 0x1C4046;
 const POPBANG_QTY_ADDR = 0x1C40B4;
 
@@ -112,7 +113,8 @@ function dataOff(addr) {
       throw new Error(`DPF pattern not flipped: [${rom2[DPF_OFFSET+10].toString(16)}, ${rom2[DPF_OFFSET+11].toString(16)}]`);
     }
     if (rom2[DPF_DTC_ADDR] !== 0xFF || rom2[DPF_DTC_ADDR + 1] !== 0xFF) throw new Error('dpf_dtc_off not applied');
-    if (rom2[EGR_ADDR] !== 0x00 || rom2[EGR_ADDR + 1] !== 0x00) throw new Error('egr_off not applied');
+    // EGR OFF : AirCtl_nMin_C patché à 0x1F40 (8000 rpm) dans le catalog, pas à 0x0000.
+    if (rom2[EGR_ADDR] !== 0x1F || rom2[EGR_ADDR + 1] !== 0x40) throw new Error(`egr_off not applied: [${rom2[EGR_ADDR].toString(16)}, ${rom2[EGR_ADDR+1].toString(16)}]`);
     console.log('✓ auto-mods applied (DPF / DTC / EGR)');
 
     // ── Incompatible ECU ───────────────────────────────────────────────────
