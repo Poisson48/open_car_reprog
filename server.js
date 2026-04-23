@@ -11,6 +11,7 @@ const { applyPctToMap, readValue, writeValue } = require('./src/rom-patcher');
 const { getEcu, listEcus } = require('./src/ecu-catalog');
 const { loadOpenDamos, relocate: relocateOpenDamos } = require('./src/open-damos');
 const { exportA2l: exportOpenDamosA2l } = require('./src/open-damos-a2l-export');
+const { listRecipes, getRecipe, applyRecipe } = require('./src/open-damos-recipes');
 const { listTemplates, getTemplate, listTemplatesForEcu } = require('./src/vehicle-templates');
 const { mapsChanged } = require('./src/map-differ');
 const { findMaps } = require('./src/map-finder');
@@ -675,6 +676,50 @@ app.get('/api/projects/:id/open-damos.a2l', async (req, res) => {
     res.send(a2l);
   } catch (e) {
     res.status(500).send(e.message);
+  }
+});
+
+// Open-damos tune recipes — liste + application d'une recette prédéfinie
+// (speed_limiter_off, smoke_off, torque_limiter_off, rev_limit_raise…).
+// Chaque recette opère sur les entries open_damos relocalisées pour la ROM
+// du projet, donc marche cross-firmware dès qu'il y a match fingerprint.
+
+app.get('/api/open-damos/recipes', (req, res) => {
+  res.json({ recipes: listRecipes() });
+});
+
+app.post('/api/projects/:id/open-damos-recipe/:recipeId', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.status(400).json({ error: 'No ROM imported' });
+
+    const recipe = getRecipe(req.params.recipeId);
+    if (!recipe) return res.status(404).json({ error: 'Recipe not found', available: listRecipes().map(r => r.id) });
+
+    const romPath = pm.getRomPath(proj.id);
+    const rom = Buffer.from(fs.readFileSync(romPath));
+    const result = applyRecipe(recipe, rom, proj.ecu);
+
+    if (result.bytesChanged === 0) {
+      return res.status(400).json({
+        ok: false,
+        recipe: recipe.id,
+        operations: result.operations,
+        error: 'Aucune opération de la recette n\'a pu être appliquée — les entries open_damos n\'ont probablement pas été relocalisées sur ta ROM. Vérifie le badge damos-match.',
+      });
+    }
+
+    fs.writeFileSync(romPath, rom);
+    res.json({
+      ok: true,
+      recipe: recipe.id,
+      name: recipe.name,
+      operations: result.operations,
+      bytesChanged: result.bytesChanged,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

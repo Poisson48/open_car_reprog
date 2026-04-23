@@ -62,13 +62,59 @@ const MODS = {
       type: 'popbang'
     },
     {
-      id: 'speed_limiter_off',
-      category: 'Divers',
-      name: 'Limiteur de vitesse — Désactiver',
-      description: 'Chercher le paramètre "vMax" ou "VSL" et mettre la valeur physique à 255 km/h.',
+      id: 'recipe_speed_limiter_off',
+      category: 'Performance',
+      name: 'Speed Limiter OFF — régulateur à 320 km/h',
+      description: 'Relève les 3 plafonds de vitesse (VSSCD_vMax, CrCCD_vSetSpdMax, PrpCCD_vSetSpdMax) à 320 km/h via open_damos relocalisé. Utile pour débrider le régulateur de vitesse.',
       risk: 'low',
-      type: 'info'
-    }
+      type: 'recipe',
+      recipeId: 'speed_limiter_off',
+    },
+    {
+      id: 'recipe_rev_limit_raise',
+      category: 'Performance',
+      name: 'Rev Limiter — zone NMR relevée à 5500 rpm',
+      description: 'Relève AccPed_nLimNMR_C (seuil régime non-monitored range). Permet plus de souplesse aux hauts régimes sans trigger les DTC de plausibilité.',
+      risk: 'low',
+      type: 'recipe',
+      recipeId: 'rev_limit_raise',
+    },
+    {
+      id: 'recipe_torque_limiter_off',
+      category: 'Performance',
+      name: 'Torque Limiter +30% — plafond protection relevé',
+      description: 'Relève EngPrt_trqAPSLim_MAP de 30% et EngPrt_qLim_CUR de 25%. Ces plafonds clamment tes gains Stage 1/2, les monter évite les saturations couple.',
+      risk: 'medium',
+      type: 'recipe',
+      recipeId: 'torque_limiter_off',
+    },
+    {
+      id: 'recipe_rail_max_raise',
+      category: 'Performance',
+      name: 'Rail Pressure Max +15%',
+      description: 'Relève Rail_pSetPointMax_MAP de 15% (ceiling ~1800 bar). Nécessaire pour Stage 2+ quand Rail_pSetPointBase atteint ce plafond.',
+      risk: 'medium',
+      type: 'recipe',
+      recipeId: 'rail_max_raise',
+    },
+    {
+      id: 'recipe_smoke_off',
+      category: 'Performance',
+      name: 'Smoke limiter assoupli (-5%)',
+      description: 'Baisse FlMng_rLmbdSmk_MAP de 5%. Autorise plus de fuel avant le smoke cut → moins de fumée noire en Stage 1+. À combiner avec un pot catalytique sport.',
+      risk: 'medium',
+      type: 'recipe',
+      recipeId: 'smoke_off',
+    },
+    {
+      id: 'recipe_full_depollution',
+      category: 'Dépollution',
+      name: 'Full Dépollution — EGR shut + trq safety relevé',
+      description: 'AirCtl_nMin_C à 8000 rpm (EGR jamais active) + AccPed_trqNMRMax_C à 250 Nm. À combiner avec un défap mécanique.',
+      risk: 'low',
+      type: 'recipe',
+      recipeId: 'full_depollution',
+    },
   ]
 };
 
@@ -269,6 +315,11 @@ export class AutoMods {
 
       if (mod.type === 'popbang') {
         this._buildPopBangActions(actionsEl);
+        continue;
+      }
+
+      if (mod.type === 'recipe') {
+        this._buildRecipeActions(actionsEl, mod);
         continue;
       }
 
@@ -535,11 +586,67 @@ export class AutoMods {
     container.appendChild(wrap);
   }
 
+  // Recipe actions : bouton Appliquer qui hit le endpoint
+  // /api/projects/:id/open-damos-recipe/:recipeId. Liste les opérations
+  // effectuées (adresses, cells changées) après succès.
+  _buildRecipeActions(container, mod) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:4px';
+
+    const applyBtn = document.createElement('button');
+    applyBtn.className = 'btn btn-sm btn-primary';
+    applyBtn.textContent = 'Appliquer cette recette';
+
+    const resultEl = document.createElement('div');
+    resultEl.style.cssText = 'font-size:10px;color:var(--text-dim);margin-top:4px;max-height:120px;overflow-y:auto';
+
+    applyBtn.addEventListener('click', async () => {
+      applyBtn.disabled = true;
+      applyBtn.textContent = 'Application…';
+      resultEl.innerHTML = '';
+      try {
+        const res = await fetch(`/api/projects/${this.projectId}/open-damos-recipe/${mod.recipeId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erreur serveur');
+
+        // Reload ROM data
+        const romRes = await fetch(`/api/projects/${this.projectId}/rom`);
+        const romBuf = await romRes.arrayBuffer();
+        this.romData.set(new Uint8Array(romBuf));
+        if (this.onBytesChange) this.onBytesChange(0, this.romData);
+
+        applyBtn.className = 'btn btn-sm btn-success';
+        applyBtn.textContent = `✓ Appliqué (${data.bytesChanged} octets)`;
+
+        // Montre le détail des ops (adresses touchées, erreurs)
+        resultEl.innerHTML = data.operations.map(o => {
+          const addr = o.address ? '0x' + o.address.toString(16).toUpperCase() : '—';
+          if (o.error) return `<div style="color:var(--danger)">✗ <strong>${o.entry}</strong> @ ${addr} — ${o.error}</div>`;
+          if (o.method === 'addPct') return `<div style="color:var(--accent2)">✓ <strong>${o.entry}</strong> @ ${addr} — +${o.pct}% (${o.cellsChanged} cells)</div>`;
+          if (o.method === 'setPhys') return `<div style="color:var(--accent2)">✓ <strong>${o.entry}</strong> @ ${addr} — ${o.prevRaw} → ${o.rawValue} (${o.physValue} phys)</div>`;
+          if (o.method === 'setRaw') return `<div style="color:var(--accent2)">✓ <strong>${o.entry}</strong> @ ${addr} — raw ${o.prevRaw} → ${o.rawValue}</div>`;
+          if (o.method === 'setMapAll') return `<div style="color:var(--accent2)">✓ <strong>${o.entry}</strong> @ ${addr} — all cells → ${o.physValue} (${o.cellsChanged} cells)</div>`;
+          return `<div>${o.entry} @ ${addr}</div>`;
+        }).join('');
+      } catch (e) {
+        applyBtn.disabled = false;
+        applyBtn.textContent = 'Appliquer cette recette';
+        resultEl.innerHTML = `<span style="color:var(--danger)">Erreur : ${e.message}</span>`;
+      }
+    });
+
+    wrap.append(applyBtn, resultEl);
+    container.appendChild(wrap);
+  }
+
   _updateStatus(mod) {
     const el = this._el?.querySelector(`#am-status-${mod.id}`);
     if (!el) return;
     const result = this._results.get(mod.id);
-    if (mod.type === 'info' || mod.type === 'stage1' || mod.type === 'popbang') { el.textContent = ''; return; }
+    if (mod.type === 'info' || mod.type === 'stage1' || mod.type === 'popbang' || mod.type === 'recipe') { el.textContent = ''; return; }
     if (!result?.found) { el.innerHTML = '<span style="color:var(--danger)">Non trouvé</span>'; return; }
     el.innerHTML = result.applied
       ? '<span style="color:var(--accent2)">✓ Actif</span>'
