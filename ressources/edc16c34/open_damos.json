@@ -2,7 +2,7 @@
   "$schema": "./open_damos.schema.json",
   "ecu": "edc16c34",
   "name": "open_damos — EDC16C34 Bosch PSA",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "license": "CC0-1.0",
   "homepage": "https://github.com/Poisson48/open_car_reprog/wiki/Open-DAMOS",
   "description": "Damos libre et gratuit pour Bosch EDC16C34 PSA (DV6TED4, 1.6 HDi 75/90/110 cv : Berlingo, Partner, 206, 207, 307, 308, 407, C3, C4, Fiesta TDCi, Mazda 2/3 MZ-CD). Chaque entrée inclut une empreinte d'axes permettant la relocalisation automatique sur n'importe quel firmware de la famille, sans besoin du damos Bosch propriétaire. Exportable en A2L ASAP2 standard (utilisable dans WinOLS, TunerPro, EcuFlash, open-car-reprog).",
@@ -324,6 +324,73 @@
       "stockPhysValue": 0.5,
       "data": { "dataType": "SWORD_BE", "factor": 0.01, "offset": 0, "unit": "mg/hub" },
       "relocation": { "method": "nearby-anchor", "anchorMap": "AccPed_trqEngLoGear_MAP" }
+    },
+    {
+      "name": "VSSCD_vMax_C",
+      "category": "speed-limiter",
+      "description": "Seuil de vitesse véhicule pour le MAX-test (diagnostic vitesse). Stock ori.BIN = 220 km/h. Pas le limiteur principal mais cohérent avec lui.",
+      "type": "VALUE",
+      "recordLayout": "Kw_Ws16",
+      "defaultAddress": "0x1E85B6",
+      "stockRawValue": 22000,
+      "stockPhysValue": 220,
+      "data": { "dataType": "SWORD_BE", "factor": 0.01, "offset": 0, "unit": "km/h" },
+      "relocation": {
+        "method": "value-range-search",
+        "anchorMap": "Rail_pSetPointMax_MAP",
+        "valueRange": [100, 300],
+        "searchWindow": 8192,
+        "note": "Scanne une fenêtre ±4KB autour de l'adresse ancrée pour une valeur 100-300 km/h."
+      }
+    },
+    {
+      "name": "CrCCD_vSetSpdMax_C",
+      "category": "speed-limiter",
+      "description": "Régulateur de vitesse / limiteur — valeur MAX configurable par le driver. Stock ori.BIN = 254 km/h (plafond régulateur). Relever à 260+ pour débloquer le régulateur.",
+      "type": "VALUE",
+      "recordLayout": "Kw_Ws16",
+      "defaultAddress": "0x1C5A7E",
+      "stockRawValue": 25400,
+      "stockPhysValue": 254,
+      "data": { "dataType": "SWORD_BE", "factor": 0.01, "offset": 0, "unit": "km/h" },
+      "relocation": {
+        "method": "value-range-search",
+        "anchorMap": "FMTC_trq2qBas_MAP",
+        "valueRange": [100, 350],
+        "searchWindow": 8192
+      }
+    },
+    {
+      "name": "PrpCCD_vSetSpdMax_C",
+      "category": "speed-limiter",
+      "description": "Setpoint MAX du limiteur de vitesse (propulsion). Stock ori.BIN = 254 km/h. Autre plafond potentiel à lever.",
+      "type": "VALUE",
+      "recordLayout": "Kw_Ws16",
+      "defaultAddress": "0x1E62C0",
+      "stockRawValue": 25400,
+      "stockPhysValue": 254,
+      "data": { "dataType": "SWORD_BE", "factor": 0.01, "offset": 0, "unit": "km/h" },
+      "relocation": {
+        "method": "value-range-search",
+        "anchorMap": "Rail_pSetPointBase_MAP",
+        "valueRange": [100, 350],
+        "searchWindow": 8192
+      }
+    },
+    {
+      "name": "PrpCCD_vSetSpdMin_C",
+      "category": "speed-limiter",
+      "description": "Setpoint MIN du limiteur de vitesse (propulsion). Stock ori.BIN = 29 km/h.",
+      "type": "VALUE",
+      "recordLayout": "Kw_Ws16",
+      "defaultAddress": "0x1E62C2",
+      "stockRawValue": 2900,
+      "stockPhysValue": 29,
+      "data": { "dataType": "SWORD_BE", "factor": 0.01, "offset": 0, "unit": "km/h" },
+      "relocation": {
+        "method": "anchor-delta",
+        "anchorMap": "Rail_pSetPointBase_MAP"
+      }
     },
     {
       "name": "AirCtl_nMin_C",

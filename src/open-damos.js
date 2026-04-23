@@ -178,51 +178,96 @@ function findMapByFingerprint(romBuf, entry, opts = {}) {
   return candidates;
 }
 
-// Relocalisation VALUE via ancrage : si l'ancre MAP a été trouvée à un offset
-// différent de son defaultAddress, on applique le même delta à la VALUE.
-// Hypothèse : Bosch range les constantes dans les mêmes régions mémoire que
-// leurs MAPs associées (vérifié sur EDC16C34). Vérifie la plausibilité de
-// la valeur lue vs la stockRawValue du damos — si trop divergent, la VALUE
-// n'est probablement pas ici et on refuse l'ancrage.
+// Relocalisation VALUE — deux stratégies :
+//   1. "anchor-delta" (défaut) : applique à la VALUE le même delta que son
+//      ancre MAP. Marche quand la VALUE est dans la même région mémoire
+//      que l'ancre (cas fréquent Bosch).
+//   2. "value-range-search" : scanne une fenêtre autour de l'adresse ancrée
+//      pour trouver une SWORD qui tombe dans la plage physique attendue
+//      (via `valueRange` dans entry.relocation). Plus robuste pour les
+//      zones où le packing mémoire varie entre firmwares. La plage est
+//      prise telle quelle (phys), convertie en raw via factor/offset.
 function findValueByAnchor(romBuf, entry, anchorMatch) {
   const defaultAddr = parseAddr(entry.defaultAddress);
   const anchorDefault = parseAddr(anchorMatch.entry.defaultAddress);
   const delta = anchorMatch.address - anchorDefault;
-  const candidate = defaultAddr + delta;
-  if (candidate < 0 || candidate + 2 > romBuf.length) return null;
+  const baseCandidate = defaultAddr + delta;
+  if (baseCandidate < 0 || baseCandidate + 2 > romBuf.length) return null;
 
   const dt = entry.data?.dataType || 'SWORD_BE';
-  const raw = readInt(romBuf, candidate, dt);
-  const isPadding = raw === -1 || raw === 0xFFFF || raw === 0 && entry.stockRawValue !== 0;
+  const factor = entry.data?.factor || 1;
+  const offset = entry.data?.offset || 0;
 
-  // Sanity plus fin : compare avec stockRawValue du damos. Une calibration
-  // cousine peut avoir une valeur différente (ex. Berlingo avec EGR déjà
-  // configuré en 5050 rpm stock), mais dans des plages raisonnables.
-  // On rejette si la valeur est complètement aberrante (ex. signed ou hors
-  // plage physique connue).
+  const method = entry.relocation?.method;
+  const valueRange = entry.relocation?.valueRange;
+  const searchWindow = entry.relocation?.searchWindow || 4096; // ±2KB par défaut
+
+  // Lit la valeur à l'adresse ancrée — on la retient comme candidate par défaut.
+  const baseRaw = readInt(romBuf, baseCandidate, dt);
+  const basePhys = baseRaw !== null ? baseRaw * factor + offset : null;
+  const baseInRange = valueRange
+    ? basePhys >= valueRange[0] && basePhys <= valueRange[1]
+    : true;
+
+  // Mode "value-range-search" : on cherche autour de l'ancre la MEILLEURE
+  // valeur qui tombe dans la plage attendue. "Meilleure" = la plus proche de
+  // la stockPhysValue (ou médiane de la plage si pas de stock).
+  if (method === 'value-range-search' && valueRange) {
+    const targetPhys = entry.stockPhysValue !== undefined
+      ? entry.stockPhysValue
+      : (valueRange[0] + valueRange[1]) / 2;
+    let bestAddr = null, bestRaw = null, bestPhys = null, bestErr = Infinity;
+    const halfWin = Math.floor(searchWindow / 2);
+    const lo = Math.max(0, baseCandidate - halfWin);
+    const hi = Math.min(romBuf.length - 2, baseCandidate + halfWin);
+    for (let a = lo; a <= hi; a += 2) {
+      const r = readInt(romBuf, a, dt);
+      if (r === null) continue;
+      const p = r * factor + offset;
+      if (p < valueRange[0] || p > valueRange[1]) continue;
+      const err = Math.abs(p - targetPhys);
+      if (err < bestErr) { bestErr = err; bestAddr = a; bestRaw = r; bestPhys = p; }
+    }
+    if (bestAddr !== null) {
+      return {
+        address: bestAddr,
+        delta: bestAddr - defaultAddr,
+        raw: bestRaw,
+        physValue: bestPhys,
+        confidence: 0.7, // moins fiable qu'un fingerprint mais plus fiable qu'un ancrage brut
+        plausible: true,
+        method: 'value-range-search',
+      };
+    }
+    // Sinon fallback sur l'adresse ancrée
+  }
+
+  // Mode "anchor-delta" (par défaut)
+  const isPadding = baseRaw === -1 || baseRaw === 0xFFFF || (baseRaw === 0 && entry.stockRawValue !== 0);
   let confidence = isPadding ? 0 : 0.8;
   let plausible = !isPadding;
-  if (entry.stockRawValue !== undefined && raw !== null) {
+  if (entry.stockRawValue !== undefined && baseRaw !== null) {
     const stock = entry.stockRawValue;
-    // Si stock est un RPM/quantité, la valeur doit rester positive et dans
-    // un ratio raisonnable (typiquement entre stock/10 et stock×10, ou
-    // entre 0 et une borne absolue type 8000 pour RPM).
     const absTolRange = Math.max(Math.abs(stock) * 10, 500);
-    if (raw < 0 || raw > 32767) plausible = false;
-    if (Math.abs(raw - stock) > absTolRange && raw > 0) {
-      // Valeur dans la bonne plage générale — on garde mais avec confiance moindre
+    if (baseRaw < 0 || baseRaw > 32767) plausible = false;
+    if (Math.abs(baseRaw - stock) > absTolRange && baseRaw > 0) {
       confidence = 0.5;
     }
     if (!plausible) confidence = 0;
   }
+  // Si on a spécifié une valueRange, on valide aussi contre elle
+  if (valueRange && basePhys !== null) {
+    if (!baseInRange) { confidence = 0; plausible = false; }
+  }
 
   return {
-    address: candidate,
+    address: baseCandidate,
     delta,
-    raw,
-    physValue: raw !== null ? raw * (entry.data?.factor || 1) + (entry.data?.offset || 0) : null,
+    raw: baseRaw,
+    physValue: basePhys,
     confidence,
     plausible,
+    method: 'anchor-delta',
   };
 }
 

@@ -11,9 +11,9 @@
  *  Véhicules       : Citroën Berlingo II 1.6 HDi 75cv, Peugeot Partner 1.6 HDi 75cv
  *  Source IDs      : ecudiag.es + JeanLucPons/DTCController (CarInfo.java)
  *
- *  Généré par      : open_damos 1.1.0 + auto-find heuristic
- *  Date            : 2026-04-23T11:00:19.732Z
- *  Entries         : 20 nommées + 151 auto-détectées
+ *  Généré par      : open_damos 1.2.0 + auto-find heuristic
+ *  Date            : 2026-04-23T11:11:57.300Z
+ *  Entries         : 24 nommées + 151 auto-détectées
  *  Licence         : CC0-1.0 (domaine public)
  *
  *  Usage WinOLS    : File → Read assignment file → ce fichier
@@ -27,7 +27,7 @@
 ASAP2_VERSION 1 60
 /begin PROJECT OPEN_DAMOS "open_damos — EDC16C34 Bosch PSA"
   /begin HEADER "Damos libre et gratuit pour Bosch EDC16C34 PSA (DV6TED4, 1.6 HDi 75/90/110 cv : Berlingo, Partner, 206, 207, 307, 308, 407, C3, C4, Fiesta TDCi, Mazda 2/3 MZ-CD). Chaque entrée inclut une empreinte d'axes permettant la relocalisation automatique sur n'importe quel firmware de la famille, sans besoin du damos Bosch propriétaire. Exportable en A2L ASAP2 standard (utilisable dans WinOLS, TunerPro, EcuFlash, open-car-reprog). — build spécifique firmware 1037383736 (Citroën Berlingo II 1.6 HDi 75cv, Peugeot Partner 1.6 HDi 75cv)."
-    VERSION "1.1.0+auto"
+    VERSION "1.2.0+auto"
     PROJECT_NO "open_damos-edc16c34"
   /end HEADER
   /begin MODULE EDC16C34 "ECU module"
@@ -429,6 +429,50 @@ ASAP2_VERSION 1 60
       Kw_Ws16
       0
       CM_0_01_0_mg_hub
+      -327.68
+      327.67
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC VSSCD_vMax_C
+      "Seuil de vitesse véhicule pour le MAX-test (diagnostic vitesse). Stock ori.BIN = 220 km/h. Pas le limiteur principal mais cohérent avec lui."
+      VALUE
+      0x1F277A
+      Kw_Ws16
+      0
+      CM_0_01_0_km_h
+      -327.68
+      327.67
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC CrCCD_vSetSpdMax_C
+      "Régulateur de vitesse / limiteur — valeur MAX configurable par le driver. Stock ori.BIN = 254 km/h (plafond régulateur). Relever à 260+ pour débloquer le régulateur."
+      VALUE
+      0x1C7D22
+      Kw_Ws16
+      0
+      CM_0_01_0_km_h
+      -327.68
+      327.67
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC PrpCCD_vSetSpdMax_C
+      "Setpoint MAX du limiteur de vitesse (propulsion). Stock ori.BIN = 254 km/h. Autre plafond potentiel à lever."
+      VALUE
+      0x1EFACA
+      Kw_Ws16
+      0
+      CM_0_01_0_km_h
+      -327.68
+      327.67
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC PrpCCD_vSetSpdMin_C
+      "Setpoint MIN du limiteur de vitesse (propulsion). Stock ori.BIN = 29 km/h."
+      VALUE
+      0x1EF8BA
+      Kw_Ws16
+      0
+      CM_0_01_0_km_h
       -327.68
       327.67
     /end CHARACTERISTIC
