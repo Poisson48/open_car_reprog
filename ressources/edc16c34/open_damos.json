@@ -2,9 +2,10 @@
   "$schema": "./open_damos.schema.json",
   "ecu": "edc16c34",
   "name": "open_damos — EDC16C34 Bosch PSA",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "CC0-1.0",
-  "description": "Damos libre et gratuit pour Bosch EDC16C34 PSA (DV6TED4, 1.6 HDi 75/90/110 cv : Berlingo, Partner, 206, 207, 307, 308, 407, C3, C4, Fiesta TDCi, Mazda 2/3 MZ-CD). Couvre les entrées essentielles au tuning (Stage 1, popbang, EGR OFF). Chaque entrée inclut une empreinte d'axes permettant la relocalisation automatique sur n'importe quel firmware de la famille, sans besoin du damos Bosch propriétaire.",
+  "homepage": "https://github.com/Poisson48/open_car_reprog/wiki/Open-DAMOS",
+  "description": "Damos libre et gratuit pour Bosch EDC16C34 PSA (DV6TED4, 1.6 HDi 75/90/110 cv : Berlingo, Partner, 206, 207, 307, 308, 407, C3, C4, Fiesta TDCi, Mazda 2/3 MZ-CD). Chaque entrée inclut une empreinte d'axes permettant la relocalisation automatique sur n'importe quel firmware de la famille, sans besoin du damos Bosch propriétaire. Exportable en A2L ASAP2 standard (utilisable dans WinOLS, TunerPro, EcuFlash, open-car-reprog).",
   "baseline": {
     "source": "ressources/edc16c34/ori.BIN",
     "damos": "ressources/edc16c34/damos.a2l",
@@ -66,6 +67,23 @@
       "stage1": { "defaultPct": 15, "safePct": 10, "sportPct": 18 }
     },
     {
+      "name": "AccPed_trqPrp_MAP",
+      "category": "stage1",
+      "description": "Driver's wish PROPULSION — couple demandé pour le mastershift (boîte auto/semi-auto). 16×16 vs VSSCD_v (vitesse véhicule) et AccPed_rChkdVal (pédale).",
+      "type": "MAP",
+      "recordLayout": "Kf_Xs16_Ys16_Ws16",
+      "defaultAddress": "0x1C18D2",
+      "dims": { "nx": 16, "ny": 16 },
+      "axes": [
+        { "inputQuantity": "VSSCD_v",           "unit": "km/h", "factor": 0.01, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [0, 1001, 2002, 2999, 4000, 5000, 6001, 6998, 7999, 9000, 10001, 11999, 13000, 15001, 15998, 18000] },
+        { "inputQuantity": "AccPed_rChkdVal",   "unit": "%",    "factor": 0.01220703125, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [0, 410, 819, 1229, 1638, 2048, 2867, 3277, 3686, 4096, 4506, 5325, 5734, 6554, 7373, 8192] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.2, "offset": 0, "unit": "Nm" },
+      "stage1": { "defaultPct": 10, "safePct": 5, "sportPct": 12 }
+    },
+    {
       "name": "FMTC_trq2qBas_MAP",
       "category": "stage1",
       "description": "Conversion couple → quantité carburant injectée (base). Pivot central du Stage 1 : plus de couple demandé = plus d'injection.",
@@ -117,6 +135,87 @@
       "stage1": { "defaultPct": 25, "safePct": 20, "sportPct": 30 }
     },
     {
+      "name": "FlMng_rLmbdSmk_MAP",
+      "category": "smoke",
+      "description": "SMOKE LIMITER — consigne lambda mini vs débit d'air. C'est ce qui te bloque en fumée noire si tu ne peux pas monter l'injection assez haut. Baisser (ex. 1.2 → 1.1) pour autoriser plus d'injection avant le smoke cut.",
+      "type": "MAP",
+      "recordLayout": "Kf_Xs16_Ys16_Ws16",
+      "defaultAddress": "0x1C931C",
+      "dims": { "nx": 16, "ny": 16 },
+      "axes": [
+        { "inputQuantity": "Eng_nAvrg",              "unit": "rpm",    "factor": 1,    "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [499, 500, 800, 900, 1000, 1250, 1500, 1750, 2000, 2250, 2750, 3250, 3500, 3750, 4000, 4500] },
+        { "inputQuantity": "AFSCD_mAirPerCylFlt",    "unit": "mg/Hub", "factor": 0.1,  "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [2500, 3500, 3750, 4000, 4250, 4500, 4750, 5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.001, "offset": 0, "unit": "-" },
+      "stage1": { "defaultPct": -5, "safePct": 0, "sportPct": -8, "note": "Baisser lambda = plus d'injection autorisée. -5% = ~1.33 → 1.26 lambda" }
+    },
+    {
+      "name": "InjCrv_phiMI1Bas2_MAP",
+      "category": "timing",
+      "description": "Start of energising Main Injection 1 (SOE MI1) — angle d'injection principal, base. Avancer de 1-2° pour Stage 1 peut améliorer les basses charges.",
+      "type": "MAP",
+      "recordLayout": "Kf_Xs16_Ys16_Ws16",
+      "defaultAddress": "0x1CBBD8",
+      "dims": { "nx": 16, "ny": 16 },
+      "axes": [
+        { "inputQuantity": "Eng_nAvrg",       "unit": "rpm",    "factor": 1,    "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [600, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3250, 3500, 3750, 4000, 4500] },
+        { "inputQuantity": "InjCtl_qSetUnBal","unit": "mg/cyc", "factor": 0.01, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [0, 170, 300, 510, 680, 850, 950, 1100, 1290, 1460, 1800, 2140, 2480, 3140, 3800, 5000] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.0234375, "offset": 0, "unit": "deg CrS" }
+    },
+    {
+      "name": "AFSCD_facCorrVal_MAP",
+      "category": "air",
+      "description": "Facteur de correction débit d'air (vs régime / qty carburant). Modifié par certains tuners pour compenser l'AGR.",
+      "type": "MAP",
+      "recordLayout": "Kf_Xs16_Ys16_Ws16",
+      "defaultAddress": "0x1C24F2",
+      "dims": { "nx": 16, "ny": 16 },
+      "axes": [
+        { "inputQuantity": "Eng_nAvrg",  "unit": "rpm",    "factor": 1,    "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [0, 375, 750, 1125, 1500, 1875, 2250, 2625, 3000, 3375, 3750, 4125, 4500, 4875, 5250, 5625] },
+        { "inputQuantity": "InjCtl_qRaw","unit": "mg/cyc", "factor": 0.01, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [0, 600, 1200, 1800, 2400, 3000, 3600, 4200, 4800, 5400, 6000, 6600, 7200, 7800, 8400, 9000] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.0001220703125, "offset": 0, "unit": "-" }
+    },
+    {
+      "name": "AFSCD_dmAirSubsVal_MAP",
+      "category": "air",
+      "description": "Valeur de substitution du débit d'air (modèle prédictif). Utilisée quand le capteur MAF est défaillant — peut être relevée pour forcer des valeurs plus optimistes.",
+      "type": "MAP",
+      "recordLayout": "Kf_Xs16_Ys16_Ws16",
+      "defaultAddress": "0x1C22AA",
+      "dims": { "nx": 16, "ny": 16 },
+      "axes": [
+        { "inputQuantity": "Eng_nAvrg",   "unit": "rpm",    "factor": 1,    "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 3000, 3200, 3600, 4000, 4400, 4600, 5000] },
+        { "inputQuantity": "InjCtl_qRaw", "unit": "mg/cyc", "factor": 0.01, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3250, 3500, 3750, 4000, 4250] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.1, "offset": 0, "unit": "Kg/h" }
+    },
+    {
+      "name": "Prp_rPrp_MAP",
+      "category": "driver",
+      "description": "Map inverse de la demande conducteur pour le mastershift (sortie couple → position pédale équivalente).",
+      "type": "MAP",
+      "recordLayout": "Kf_Xs16_Ys16_Ws16",
+      "defaultAddress": "0x1E5FAC",
+      "dims": { "nx": 16, "ny": 16 },
+      "axes": [
+        { "inputQuantity": "VSSCD_v",          "unit": "km/h", "factor": 0.01, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [0, 1001, 2002, 2999, 4000, 5000, 6001, 6998, 7999, 9000, 10001, 11002, 11498, 11999, 12499, 13000] },
+        { "inputQuantity": "Prp_trqCor_mp",    "unit": "Nm",   "factor": 0.2,  "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [0, 30, 50, 80, 100, 130, 150, 180, 200, 230, 250, 280, 300, 330, 350, 400] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.01220703125, "offset": 0, "unit": "%" }
+    },
+    {
       "name": "Rail_pSetPointMax_MAP",
       "category": "safety",
       "description": "Limiteur max de pression rail (fonction régime + qty injectée). Relever uniquement si tu pousses le Stage 2+ et que Rail_pSetPointBase atteint ce plafond.",
@@ -145,6 +244,58 @@
           "fingerprint": [0, 250, 500, 750, 1000, 1250, 1500, 1750, 2250, 2500, 2750, 3000, 3250, 3500, 5000, 5200] }
       ],
       "data": { "dataType": "SWORD_BE", "factor": 0.01, "offset": 0, "unit": "mg/hub" }
+    },
+    {
+      "name": "AFSCD_dmLin_CUR",
+      "category": "air",
+      "description": "Courbe de linéarisation du capteur MAF (voltage → débit d'air). À connaître mais pas à toucher en Stage 1 standard.",
+      "type": "CURVE",
+      "recordLayout": "Kl_Xs16_Ws16",
+      "defaultAddress": "0x1C1C64",
+      "dims": { "nx": 15 },
+      "axes": [
+        { "inputQuantity": "AFSCD_uRaw", "unit": "mV", "factor": 4.887585532746823, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [205, 327, 379, 430, 481, 532, 583, 634, 685, 737, 788, 839, 890, 941, 992] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.1, "offset": 0, "unit": "Kg/h" }
+    },
+    {
+      "name": "FlSys_rhoTFuel_CUR",
+      "category": "fuel",
+      "description": "Correction de densité carburant en fonction de la température. Pas critique en Stage 1 mais utile pour certaines stratégies lambda.",
+      "type": "CURVE",
+      "recordLayout": "Kl_Xs16_Ws16",
+      "defaultAddress": "0x1C9A50",
+      "dims": { "nx": 12 },
+      "axes": [
+        { "inputQuantity": "FTSCD_tFuel", "unit": "deg C", "factor": 0.1, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [2431, 2531, 2631, 2731, 2831, 2931, 3031, 3131, 3231, 3331, 3531, 3731] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.1, "offset": 0, "unit": "kg/m^3" }
+    },
+    {
+      "name": "AccPed_trqNMRMax_C",
+      "category": "safety",
+      "description": "Couple max autorisé dans la 'non-monitored range' (mode dégradé pédale). Stock 100 Nm — à monter si tu relèves les Stage 1 de beaucoup.",
+      "type": "VALUE",
+      "recordLayout": "Kw_Ws16",
+      "defaultAddress": "0x1C18D0",
+      "stockRawValue": 500,
+      "stockPhysValue": 100,
+      "data": { "dataType": "SWORD_BE", "factor": 0.2, "offset": 0, "unit": "Nm" },
+      "relocation": { "method": "nearby-anchor", "anchorMap": "AccPed_trqEngLoGear_MAP" }
+    },
+    {
+      "name": "AccPed_nLimNMR_C",
+      "category": "safety",
+      "description": "Seuil régime moteur 'non-monitored range'. Stock 1500 rpm.",
+      "type": "VALUE",
+      "recordLayout": "Kw_Ws16",
+      "defaultAddress": "0x1C142C",
+      "stockRawValue": 1500,
+      "stockPhysValue": 1500,
+      "data": { "dataType": "SWORD_BE", "factor": 1, "offset": 0, "unit": "rpm" },
+      "relocation": { "method": "nearby-anchor", "anchorMap": "AccPed_trqEngHiGear_MAP" }
     },
     {
       "name": "AirCtl_nOvrRun_C",

@@ -132,6 +132,31 @@ Tu peux éditer le message avant d'appuyer `💾 Commit modifications`.
 
 ---
 
+## Compare vs fichier externe (.bin)
+
+![compare-file](images/17-compare-file.png)
+
+Tu as un `.bin` tuné trouvé sur un forum et tu veux voir **ce qui diffère vs ton projet** ? Le bouton **`📂 Comparer fichier…`** de la toolbar ouvre un sélecteur :
+
+1. Upload du `.bin` de référence → le serveur calcule le diff map-level entre le ROM courant et ce fichier (buffer gardé en RAM tant que tu ne ferms pas le projet).
+2. Liste des cartes qui diffèrent, triée par tightness, identique au diff git.
+3. Click sur une carte → éditeur s'ouvre en **compare view vs ce fichier externe** (même logique que compare vs parent git, mais avec un banner `📊 Comparaison vs <fichier>.bin`) :
+
+![compare-file-editor](images/18-compare-file-editor.png)
+
+- Cellules vertes : plus hautes dans le fichier externe
+- Cellules rouges : plus basses
+- Hover → tooltip avec les 2 valeurs
+
+Utilisé typiquement pour :
+- Extraire les adresses tunées d'un `.bin` tiers vers son propre projet
+- Vérifier qu'un Stage 1 maison est cohérent avec une référence connue
+- Identifier les zones « hors scope » (sections code modifiées = souvent un flasher qui a repackagé la calibration autrement)
+
+Le bouton **`✕`** du banner libère le buffer en RAM côté serveur.
+
+---
+
 ## Restauration
 
 Bouton **`⟲ Restaurer`** dans le diff map-level d'un commit → ramène le ROM à cet état via :

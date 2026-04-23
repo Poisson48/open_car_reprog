@@ -55,6 +55,29 @@ rm ressources/edc16c34/damos.cache.json
 node server.js
 ```
 
+## A2L personnalisé par projet
+
+Chaque projet peut **remplacer** le damos du catalog ECU par un A2L spécifique. Utile si :
+- Ton ECU n'est pas dans le catalog
+- Ton damos est plus complet que celui fourni
+- Tu testes un ROM d'une révision firmware différente
+
+Accès : **Modifier projet** → section `A2L personnalisé` → upload d'un fichier `.a2l`.
+
+- Parse immédiat (plusieurs secondes si le fichier est gros)
+- Cache JSON dans `projects/<uuid>/custom.a2l.cache.json`
+- Le panneau paramètres à gauche utilise automatiquement ce A2L
+- Bouton **`Supprimer`** → retour au A2L du catalog
+
+API correspondante :
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| POST | `/api/projects/:id/a2l` | Upload d'un `.a2l` personnalisé (multipart `a2l`) |
+| GET | `/api/projects/:id/a2l/info` | `{ custom, fileName?, characteristicsCount? }` |
+| DELETE | `/api/projects/:id/a2l` | Supprime le custom A2L → retour au A2L catalog |
+| GET | `/api/projects/:id/parameters` | Liste paramètres (custom si uploadé, sinon catalog) |
+
 ## Structure A2L exposée par l'API
 
 Quand tu cliques un paramètre, l'app fait `GET /api/ecu/edc16c34/parameters/<name>` qui retourne :

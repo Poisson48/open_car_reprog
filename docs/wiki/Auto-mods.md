@@ -4,6 +4,10 @@
 
 Le bouton **`⚡ Auto-mods`** de la toolbar ouvre la boîte à outils de modifications automatiques. Toutes les adresses et signatures sont **confirmées** sur EDC16C34 (Bosch, PSA 1.6 HDi 110 cv, calculateur des 206, 307, 308, Partner).
 
+La modal est structurée en deux sections :
+1. **🚗 Templates véhicule** (en haut) — presets one-click qui bundlent Stage 1 + Pop&Bang + auto-mods cohérents pour une famille de voiture. Voir [Templates véhicule](Templates-vehicule).
+2. **Modifications individuelles** (en dessous) — Stage 1 personnalisable, Pop & Bang, DPF/EGR/Swirl, speed limiter. Documentées ci-après.
+
 ---
 
 ## Stage 1

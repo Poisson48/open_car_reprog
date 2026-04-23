@@ -10,6 +10,7 @@ const WinolsParser = require('./src/winols-parser');
 const { applyPctToMap, readValue, writeValue } = require('./src/rom-patcher');
 const { getEcu, listEcus } = require('./src/ecu-catalog');
 const { loadOpenDamos, relocate: relocateOpenDamos } = require('./src/open-damos');
+const { exportA2l: exportOpenDamosA2l } = require('./src/open-damos-a2l-export');
 const { listTemplates, getTemplate, listTemplatesForEcu } = require('./src/vehicle-templates');
 const { mapsChanged } = require('./src/map-differ');
 const { findMaps } = require('./src/map-finder');
@@ -633,6 +634,72 @@ function sampleCharacteristics(list, n) {
   for (let i = 0; i < list.length && result.length < n; i += step) result.push(list[i]);
   return result;
 }
+
+// ── open_damos export ────────────────────────────────────────────────────────
+// Returns a fresh A2L file generated from the open_damos JSON, optionally
+// with addresses relocated to match the project ROM's firmware. The resulting
+// file can be loaded by WinOLS, TunerPro, EcuFlash — or uploaded back as a
+// custom A2L for the project.
+
+app.get('/api/ecu/:ecu/open-damos.a2l', (req, res) => {
+  try {
+    const damos = loadOpenDamos(req.params.ecu);
+    if (!damos) return res.status(404).send('No open_damos for this ECU');
+    const { a2l } = exportOpenDamosA2l(damos, null);
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="open_damos_${req.params.ecu}_baseline.a2l"`);
+    res.send(a2l);
+  } catch (e) {
+    res.status(500).send(e.message);
+  }
+});
+
+app.get('/api/projects/:id/open-damos.a2l', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).send('Project not found');
+    const damos = loadOpenDamos(proj.ecu);
+    if (!damos) return res.status(404).send('No open_damos for ECU ' + proj.ecu);
+    const romBuf = proj.hasRom ? fs.readFileSync(pm.getRomPath(proj.id)) : null;
+    const { a2l, relocation } = exportOpenDamosA2l(damos, romBuf);
+    const swTag = romBuf ? 'relocated' : 'baseline';
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="open_damos_${proj.ecu}_${swTag}.a2l"`);
+    if (relocation) {
+      const fp = relocation.filter(r => r.addressSource === 'fingerprint').length;
+      const an = relocation.filter(r => r.addressSource === 'anchor').length;
+      res.setHeader('X-Open-Damos-Fingerprint', String(fp));
+      res.setHeader('X-Open-Damos-Anchor', String(an));
+      res.setHeader('X-Open-Damos-Total', String(relocation.length));
+    }
+    res.send(a2l);
+  } catch (e) {
+    res.status(500).send(e.message);
+  }
+});
+
+// Also expose the raw open_damos.json (structured metadata, useful for UI or
+// external tooling that wants to consume fingerprints without re-parsing A2L).
+app.get('/api/ecu/:ecu/open-damos.json', (req, res) => {
+  const damos = loadOpenDamos(req.params.ecu);
+  if (!damos) return res.status(404).json({ error: 'No open_damos for this ECU' });
+  res.json(damos);
+});
+
+app.get('/api/projects/:id/open-damos.json', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    const damos = loadOpenDamos(proj.ecu);
+    if (!damos) return res.status(404).json({ error: 'No open_damos for ECU ' + proj.ecu });
+    if (!proj.hasRom) return res.json({ damos, relocation: null });
+    const romBuf = fs.readFileSync(pm.getRomPath(proj.id));
+    const relocation = relocateOpenDamos(damos, romBuf);
+    res.json({ damos, relocation });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ── ECU list ──────────────────────────────────────────────────────────────────
 

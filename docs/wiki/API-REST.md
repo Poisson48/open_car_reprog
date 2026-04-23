@@ -8,7 +8,7 @@ Toutes les routes sont sous `/api`. Le serveur écoute par défaut sur `http://l
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/version` | `{ "version": "0.2.0" }` depuis package.json |
+| GET | `/api/version` | `{ "version": "0.3.0" }` depuis package.json |
 | GET | `/api/ecu` | Liste du catalog : `[{ id, name, a2l, stage1, popbang }]` |
 
 ---
@@ -121,6 +121,15 @@ Trié par **tightness** (cellules changées / cellules totales) descendant — l
 | GET | `/api/projects/:id/a2l/info` | `{ custom: bool, fileName?, characteristicsCount? }` |
 | GET | `/api/projects/:id/a2l/match` | **Damos-match score** : `{ score, status: match\|partial\|mismatch, message, sampled, plausible, padding }`. Échantillonne 200 entries A2L avec adresse, vérifie si chaque header est lisible dans la ROM. Score ≥ 90 = damos OK, < 30 = mismatch → open_damos prend le relais. |
 | DELETE | `/api/projects/:id/a2l` | Supprime le custom A2L → retour au catalog |
+
+### open_damos export
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/api/ecu/:ecu/open-damos.a2l` | Baseline A2L ASAP2 (adresses du damos de référence) |
+| GET | `/api/projects/:id/open-damos.a2l` | A2L **relocalisé** pour la ROM du projet (fingerprints résolvent les vraies adresses du firmware). Headers : `X-Open-Damos-Fingerprint`, `X-Open-Damos-Anchor`, `X-Open-Damos-Total` |
+| GET | `/api/ecu/:ecu/open-damos.json` | open_damos.json brut (fingerprints + métadonnées) |
+| GET | `/api/projects/:id/open-damos.json` | open_damos + résultat de relocation pour la ROM du projet |
 
 Exemple :
 

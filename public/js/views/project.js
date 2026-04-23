@@ -48,6 +48,7 @@ export async function renderProject(container, { projectId, onBack }) {
           <button class="btn btn-sm" id="btn-map-finder" title="Détecter automatiquement les cartographies dans la ROM" ${!project.hasRom ? 'disabled' : ''}>🔍 Auto-find</button>
           <button class="btn btn-sm" id="btn-a2l-upload" title="Charger un fichier A2L/DAMOS personnalisé pour ce projet">📑 A2L</button>
           <input type="file" id="a2l-file-input" accept=".a2l,.A2L" style="display:none">
+          <a class="btn btn-sm" id="btn-open-damos-dl" href="/api/projects/${projectId}/open-damos.a2l" download="open_damos_${project.ecu || 'ecu'}_${project.name?.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'project'}.a2l" title="Télécharger l'open_damos relocalisé pour cette ROM (A2L ASAP2 standard, utilisable dans WinOLS / TunerPro)">🧬 open_damos</a>
           <span id="damos-match-badge" title="Correspondance damos ↔ ROM" style="display:none"></span>
           <span id="branch-switcher-slot"></span>
           <div style="flex:1"></div>

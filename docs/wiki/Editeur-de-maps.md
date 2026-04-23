@@ -34,8 +34,21 @@ Une barre d'édition apparaît quand au moins une cellule est sélectionnée :
 - Boutons rapides : `+1%` / `-1%` / `+5%` / `-5%` / `+10%` / `-10%`
 - Input `Valeur…` + bouton `Appliquer` → valeur absolue
 - `Tout sélectionner` / `Désélectionner`
+- **`Copier` / `Coller`** (ou `Ctrl+C` / `Ctrl+V`) — copie le bloc de cellules sélectionnées et le colle à partir de la cellule active. Utile pour dupliquer une zone « safe » vers une autre région de la même map.
+- **`Lisser`** — applique un filtre moyen 3×3 sur la sélection (supprime les pics / trous)
+- **`Égaliser`** — remplace toutes les cellules par la moyenne de la sélection (mesa plate)
+- **`Rampe`** — interpole linéairement entre les valeurs des 2 coins opposés de la sélection (gradient diagonal)
 
 Les changements mettent à jour les octets en mémoire et sont répercutés dans l'hex editor (les octets deviennent orange). Appuyer `Ctrl+S` pour persister sur disque.
+
+## Undo / redo ROM-level
+
+Toute modification d'octets (édition manuelle, ±%, auto-mods, copier/coller, lisser/égaliser/rampe) est poussée sur une **pile undo au niveau du projet** :
+
+- `Ctrl+Z` — annule la dernière modif (hex comme map)
+- `Ctrl+Shift+Z` — refait la modif annulée
+
+La pile est vidée quand tu fais un commit git (puisque git prend le relais comme historique canonique) ou que tu switches de projet.
 
 ## Heatmap
 
@@ -43,6 +56,45 @@ Les changements mettent à jour les octets en mémoire et sont répercutés dans
 - Axes X et Y avec unités
 - Couleur interpolée (bleu → vert → jaune → rouge)
 - Click cellule → sélectionne aussi dans la table
+
+## Vue 3D surface
+
+![map-3d](images/13-map-3d.png)
+
+Le bouton **`🎲 3D`** bascule la heatmap en **surface 3D** :
+- Les valeurs deviennent une élévation Z
+- Palette identique (bleu bas → rouge haut)
+- **Souris** = rotation interactive (drag = yaw + pitch)
+- **Molette** = zoom
+
+![map-3d-rotated](images/14-map-3d-rotated.png)
+
+Utile pour visualiser d'un coup d'œil les creux (EGR fade-out, clamp de couple) et les pics (sur-injection). Repasser en 2D avec le même bouton (`📊 2D`).
+
+## Slice viewer
+
+![slice-viewer](images/16-slice-viewer.png)
+
+**Click sur un header de ligne ou de colonne** → ouvre un graphique Chart.js linéaire de cette tranche :
+
+- Click numéro de **ligne** → courbe des valeurs en fonction de l'axe X (RPM, charge…) pour cette valeur d'axe Y
+- Click numéro de **colonne** → courbe en fonction de l'axe Y
+
+Ça permet de vérifier la monotonicité / le smoothing d'une slice sans quitter l'éditeur. Si tu modifies la map ensuite, le graphique se met à jour en temps réel.
+
+## Notes de map
+
+![map-notes](images/15-map-notes.png)
+
+Chaque carte a une **note texte persistante par projet**, pour garder la trace des intentions :
+
+- Icône 📝 dans la toolbar de l'éditeur
+- Textarea libre (markdown simple accepté, pas de rendu)
+- Sauvegarde auto en debounce (500 ms après la dernière frappe)
+- Stockée dans `projects/<uuid>/notes.json` → `{ [mapName]: text }`
+- Survit aux restores, branches, et updates d'A2L
+
+Exemple d'usage : `"Stage 1 safe — baissé de 15% → 10% pour compatibilité embrayage usé"`.
 
 ## Layouts supportés
 
@@ -75,5 +127,10 @@ Voir [Workflow git — Compare view](Workflow-git#compare-view).
 | Entrer une valeur | Double-click cellule, taper, Enter |
 | Sélection rectangle | Click-drag |
 | Ajuster sélection | `+5%`, `-5%`, etc. dans la barre |
+| Copier / coller sélection | `Ctrl+C` / `Ctrl+V` |
+| Undo / redo modifs ROM | `Ctrl+Z` / `Ctrl+Shift+Z` |
+| Bascule 2D ↔ 3D | Bouton **`🎲 3D`** / **`📊 2D`** dans la toolbar heatmap |
+| Slice viewer | Click sur un header de ligne ou colonne |
+| Notes map | Icône 📝 dans la toolbar de l'éditeur |
 | Fermer | **✕** (toolbar) |
 | Quitter compare mode | **✕** du banner |

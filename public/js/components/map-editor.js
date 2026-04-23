@@ -47,6 +47,24 @@ function toRaw(phys, param) {
 }
 
 // Jet colormap: blue → cyan → green → yellow → red
+// Divergent palette for delta rendering: red (< 0) → dark grey (= 0) → green (> 0).
+// Input is normalized in [-1, 1]; magnitude drives color saturation so small
+// deltas are visibly weaker than extreme ones.
+function divergentColor(t) {
+  t = Math.max(-1, Math.min(1, t));
+  if (t < 0) {
+    const f = -t;
+    const r = Math.round(50 + f * 200);
+    const g = Math.round(50 * (1 - f));
+    const b = Math.round(50 * (1 - f));
+    return `rgb(${r},${g},${b})`;
+  }
+  const r = Math.round(50 * (1 - t));
+  const g = Math.round(50 + t * 180);
+  const b = Math.round(50 * (1 - t));
+  return `rgb(${r},${g},${b})`;
+}
+
 function heatColor(t) {
   t = Math.max(0, Math.min(1, t));
   const stops = [
@@ -97,6 +115,7 @@ export class MapEditor {
     this._view3D = false;
     this._view3DAz = 45;
     this._view3DEl = 30;
+    this._view3DMode = 'value'; // 'value' | 'delta' — delta only active when compareRom is set
     el.classList.add('hidden');
   }
 
@@ -235,7 +254,8 @@ export class MapEditor {
         <span class="map-desc">${p.description || ''}</span>
         <span style="font-size:11px;color:var(--text-dim)">${p.type} · ${p.dataType || ''} · ${p.unit || ''} · 0x${p.address.toString(16).toUpperCase()}</span>
         ${p.type === 'MAP' ? `<button class="btn btn-sm" id="map-toggle-3d" style="margin-left:4px" title="Vue 3D / 2D">${this._view3D ? '▦ 2D' : '🗻 3D'}</button>
-        <button class="btn btn-sm map-3d-only" id="map-3d-reset" title="Réinitialiser la vue" style="display:${this._view3D ? '' : 'none'}">⟳</button>` : ''}
+        <button class="btn btn-sm map-3d-only" id="map-3d-reset" title="Réinitialiser la vue" style="display:${this._view3D ? '' : 'none'}">⟳</button>
+        <button class="btn btn-sm map-3d-only" id="map-3d-delta" title="Colorer la surface par delta vs compare" style="display:${this._view3D && this.compareRom ? '' : 'none'}">${this._view3DMode === 'delta' ? '🎨 Valeur' : 'Δ Delta'}</button>` : ''}
         <button class="btn btn-sm" id="map-close" style="margin-left:8px">✕</button>
       </div>
 
