@@ -51,6 +51,30 @@ function sampleChange(a, b, addr, size) {
   return null;
 }
 
+// Moyenne des variations relatives sur toutes les cellules modifiées.
+// Robuste à l'échantillonnage sur une cellule négative (qui inverserait le
+// signe du %). Retourne null si aucune cellule non-zéro ne permet un ratio.
+function avgChange(a, b, addr, size) {
+  let sum = 0, n = 0;
+  for (let off = 0; off + 1 < size; off += 2) {
+    const i = addr + off;
+    if (i + 1 >= a.length || i + 1 >= b.length) break;
+    const ra = (a[i] << 8) | a[i + 1];
+    const rb = (b[i] << 8) | b[i + 1];
+    if (ra === rb) continue;
+    const sa = ra > 0x7FFF ? ra - 0x10000 : ra;
+    const sb = rb > 0x7FFF ? rb - 0x10000 : rb;
+    if (sa === 0) continue;
+    // Signed denominator : phys_new = phys_old * (1 + pct) implique
+    // raw_new = raw_old * (1 + pct), donc (sb − sa) / sa = pct quel que
+    // soit le signe de sa. Diviser par Math.abs(sa) donnerait -pct pour
+    // les cellules négatives → moyenne inversée.
+    sum += (sb - sa) / sa;
+    n++;
+  }
+  return n > 0 ? { avgRatio: sum / n, countedCells: n } : null;
+}
+
 // Counts how many SWORD cells differ inside the region.
 function countDiffCells(a, b, addr, size) {
   let n = 0;
@@ -103,7 +127,8 @@ function mapsChanged(bufA, bufB, characteristics) {
       cellsChanged,
       totalCells,
       tightness,
-      sample: sampleChange(bufA, bufB, c.address, size)
+      sample: sampleChange(bufA, bufB, c.address, size),
+      avg: avgChange(bufA, bufB, c.address, size)
     });
   }
 

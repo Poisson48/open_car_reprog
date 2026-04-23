@@ -191,6 +191,10 @@ export class GitPanel {
 
   async _suggestMsg(force) {
     try {
+      // Flush in-memory edits first: /diff-maps-head reads the on-disk ROM,
+      // so unflushed edits would be invisible to the map differ and ✨ would
+      // look like "nothing to commit" even right after a +5 % on 160 cells.
+      if (this.onBeforeCommit) await this.onBeforeCommit();
       const { maps } = await api.gitDiffMapsHead(this.projectId);
       if (!maps || !maps.length) {
         if (force) this._flashSuggest('rien à committer');
@@ -586,6 +590,14 @@ function renderGutter(info, nextInfo) {
 }
 
 function formatName(m) {
+  // Prefer the average relative change over all modified cells — sampling only
+  // the first-changed cell gave the wrong sign when that cell happened to be
+  // negative (+10% on phys=-0.9 shows up as "-10%" if you only look at that cell).
+  if (m.avg && Number.isFinite(m.avg.avgRatio)) {
+    const pct = Math.round(m.avg.avgRatio * 100);
+    const sign = pct >= 0 ? '+' : '';
+    return `${m.name} ${sign}${pct}%`;
+  }
   if (m.sample) {
     const d = m.sample.after - m.sample.before;
     const pct = m.sample.before !== 0 ? Math.round((d / Math.abs(m.sample.before)) * 100) : null;
