@@ -48,6 +48,7 @@ export async function renderProject(container, { projectId, onBack }) {
           <button class="btn btn-sm" id="btn-map-finder" title="Détecter automatiquement les cartographies dans la ROM" ${!project.hasRom ? 'disabled' : ''}>🔍 Auto-find</button>
           <button class="btn btn-sm" id="btn-a2l-upload" title="Charger un fichier A2L/DAMOS personnalisé pour ce projet">📑 A2L</button>
           <input type="file" id="a2l-file-input" accept=".a2l,.A2L" style="display:none">
+          <span id="damos-match-badge" title="Correspondance damos ↔ ROM" style="display:none"></span>
           <span id="branch-switcher-slot"></span>
           <div style="flex:1"></div>
           ${!project.hasRom ? `
@@ -195,6 +196,14 @@ export async function renderProject(container, { projectId, onBack }) {
     const buf = await api.getRom(projectId);
     romData = new Uint8Array(buf);
 
+    // Refresh the damos-match badge whenever a ROM is (re)loaded. Runs in
+    // background so it doesn't block the hex editor. If it fails silently
+    // the badge stays hidden — not worth breaking the UI over this.
+    fetch(`/api/projects/${projectId}/a2l/match`)
+      .then(r => r.json())
+      .then(data => updateDamosMatchBadge(data))
+      .catch(() => {});
+
     const wrap = document.getElementById('hex-wrap');
     wrap.innerHTML = '';
     hexEditor = new HexEditor(wrap);
@@ -247,6 +256,50 @@ export async function renderProject(container, { projectId, onBack }) {
       const file = e.dataTransfer.files[0];
       if (file) importRom(file, /\.ols$/i.test(file.name));
     });
+  }
+
+  // Damos-match badge : colore + message selon score serveur. Click → modal
+  // avec explication détaillée. Silent si pas de ROM / pas d'A2L.
+  function updateDamosMatchBadge(data) {
+    const badge = document.getElementById('damos-match-badge');
+    if (!badge) return;
+    if (!data || !data.hasRom || !data.hasA2l || data.score === null) {
+      badge.style.display = 'none';
+      return;
+    }
+    const { score, status, message } = data;
+    const colors = {
+      match:    { bg: '#1e3a1e', fg: '#4ade80', icon: '🟢', label: 'Damos OK' },
+      partial:  { bg: '#3a2e1e', fg: '#fbbf24', icon: '🟠', label: 'Damos partiel' },
+      mismatch: { bg: '#3a1e1e', fg: '#f87171', icon: '🔴', label: 'Damos mismatch' },
+    };
+    const c = colors[status] || colors.partial;
+    badge.style.display = 'inline-flex';
+    badge.style.alignItems = 'center';
+    badge.style.gap = '4px';
+    badge.style.padding = '2px 8px';
+    badge.style.marginLeft = '4px';
+    badge.style.borderRadius = '3px';
+    badge.style.fontSize = '11px';
+    badge.style.fontWeight = '500';
+    badge.style.cursor = 'pointer';
+    badge.style.background = c.bg;
+    badge.style.color = c.fg;
+    badge.style.border = `1px solid ${c.fg}40`;
+    badge.innerHTML = `${c.icon} ${c.label} (${score}%)`;
+    badge.title = message;
+    badge.onclick = () => {
+      alert(
+        `${c.label} — ${score}% de correspondance\n\n${message}\n\n` +
+        `Détails : ${data.plausible}/${data.sampled} entries lisibles, ${data.padding} en padding (FFFF), ${data.implausible} invalides.\n` +
+        `Damos source : ${data.a2lSource === 'custom' ? 'custom uploadé' : `catalog ECU ${data.ecu}`}\n\n` +
+        (status === 'mismatch'
+          ? '→ Stage 1 utilisera open_damos (fingerprint auto) plutôt que les adresses A2L pour cette ROM.'
+          : status === 'partial'
+            ? '→ Stage 1 vérifiera chaque adresse A2L ; fallback open_damos si une map ne matche pas.'
+            : '→ Stage 1 utilise les adresses A2L directement.')
+      );
+    };
   }
 
   // ── Edit project button (always visible) ────────────────────────────────────

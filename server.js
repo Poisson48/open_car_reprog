@@ -556,6 +556,84 @@ app.delete('/api/projects/:id/a2l', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Damos vs ROM match check : pour chaque characteristic MAP/CURVE avec une
+// adresse dans l'A2L, lit le header à cette adresse dans la ROM et vérifie
+// si les dimensions et axes sont plausibles. Retourne un score 0..100 :
+// 100 = parfait match (c'est bien la ROM que le damos décrit), < 30 = le
+// damos est pour un autre firmware, 30-80 = calibration cousine mais adresses
+// décalées → open_damos prend le relais pour Stage 1.
+app.get('/api/projects/:id/a2l/match', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.json({ hasRom: false, score: null });
+
+    const a2l = await getA2lForProject(proj);
+    if (!a2l?.characteristics) return res.json({ hasA2l: false, score: null });
+
+    const rom = fs.readFileSync(pm.getRomPath(proj.id));
+    const sampleSize = 200; // échantillonne 200 MAP/CURVE pour rapidité
+    const candidates = a2l.characteristics.filter(c =>
+      (c.type === 'MAP' || c.type === 'CURVE') && c.address !== undefined
+    );
+    const sampled = candidates.length <= sampleSize
+      ? candidates
+      : sampleCharacteristics(candidates, sampleSize);
+
+    let plausible = 0, implausible = 0, padding = 0;
+    for (const c of sampled) {
+      if (c.address + 4 > rom.length) { implausible++; continue; }
+      const nx = (rom[c.address] << 8) | rom[c.address + 1];
+      const ny = c.type === 'MAP' ? (rom[c.address + 2] << 8) | rom[c.address + 3] : 0;
+      if (nx === 0xFFFF || (c.type === 'MAP' && ny === 0xFFFF)) { padding++; continue; }
+      const nxOk = nx >= 2 && nx <= 64;
+      const nyOk = c.type !== 'MAP' || (ny >= 2 && ny <= 64);
+      if (nxOk && nyOk) plausible++; else implausible++;
+    }
+
+    const total = sampled.length;
+    const score = total ? Math.round(100 * plausible / total) : 0;
+
+    // Statut qualitatif pour l'UI
+    let status, message;
+    if (score >= 90) {
+      status = 'match';
+      message = 'Le damos correspond à ta ROM — Stage 1 utilise les adresses A2L.';
+    } else if (score >= 30) {
+      status = 'partial';
+      message = `Damos partiellement compatible (${score}%). Probablement un firmware cousin — open_damos relocalise par empreinte d'axes pour Stage 1.`;
+    } else {
+      status = 'mismatch';
+      message = `⚠ Ton damos NE correspond PAS à cette ROM (${score}% de matches). Upload un damos spécifique à ton firmware via 📑 A2L, ou laisse open_damos faire le job (fingerprint auto).`;
+    }
+
+    res.json({
+      hasRom: true, hasA2l: true,
+      score,
+      status,
+      message,
+      sampled: total,
+      plausible,
+      implausible,
+      padding,
+      ecu: proj.ecu,
+      a2lSource: proj.customA2lName ? 'custom' : 'catalog',
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+function sampleCharacteristics(list, n) {
+  // Stratified sample — prend des entries espacées dans la liste pour
+  // couvrir différentes zones mémoire (sinon on pourrait tomber sur un
+  // cluster qui est tout en padding sans représenter l'ensemble).
+  const step = Math.max(1, Math.floor(list.length / n));
+  const result = [];
+  for (let i = 0; i < list.length && result.length < n; i += step) result.push(list[i]);
+  return result;
+}
+
 // ── ECU list ──────────────────────────────────────────────────────────────────
 
 app.get('/api/ecu', (req, res) => {
