@@ -1180,7 +1180,6 @@ export class MapEditor {
   _applyPct(pct) {
     if (!this._selection.size || !this._grid) return;
     const factor = 1 + pct / 100;
-    const dir = pct >= 0 ? 1 : -1;
     const p = this.param;
     const changed = [];
     let nbZeroSkipped = 0;
@@ -1190,12 +1189,22 @@ export class MapEditor {
       const oldPhys = row[xi];
       let newPhys = oldPhys * factor;
       // Raw arrondit parfois au même entier (ex: phys=1, +5% → 1.05 → raw=1).
-      // On force alors un bump de 1 unité raw dans le sens voulu, sauf sur
-      // les cellules à 0 (le tuner ne s'attend pas à voir 0 → 1).
+      // On force alors un bump de 1 unité raw dans le sens de newPhys − oldPhys,
+      // sauf sur les cellules à 0 (le tuner ne s'attend pas à voir 0 → 1).
+      // Pour les phys négatifs, +5% donne oldPhys × 1.05 qui est PLUS NÉGATIF,
+      // donc le bump doit aller vers -∞ en raw (factor>0) : c'est sign(newPhys−oldPhys)
+      // qui donne la direction, pas sign(pct).
       if (oldPhys !== 0) {
         const oldRaw = Math.round(toRaw(oldPhys, p));
         const newRaw = Math.round(toRaw(newPhys, p));
-        if (newRaw === oldRaw) newPhys = toPhys(oldRaw + dir, p);
+        if (newRaw === oldRaw) {
+          // Direction du bump en raw-space = sens dans lequel toPhys varie
+          // pour nous rapprocher de newPhys. Pour factor>0 c'est sign(Δphys),
+          // pour factor<0 c'est l'inverse. Produit = sign(Δphys × factor).
+          const f = p?.factor ?? 1;
+          const dir = Math.sign((newPhys - oldPhys) * f) || (pct >= 0 ? 1 : -1);
+          newPhys = toPhys(oldRaw + dir, p);
+        }
       } else {
         nbZeroSkipped++;
       }
@@ -1295,10 +1304,13 @@ export class MapEditor {
   // reflect the new preference.
   setUnitsPrefs(prefs) {
     this.unitsPrefs = prefs || { torque: 'Nm', temp: 'C' };
-    if (this.param && this.romData) {
-      const p = this.param;
-      this.show(p, this.romData, this.compareRom, this.compareLabel);
-    }
+    if (!this.param || !this.romData) return;
+    // Re-render in place sans perdre l'état (compareRom, _view3D, _view3DMode).
+    // show() / showCompare() réinitialisent la sélection et le mode 3D, ce qui
+    // est surprenant quand l'utilisateur bascule juste l'unité. On rafraîchit
+    // seulement les inputs et les labels.
+    this._render();
+    if (this.compareRom) queueMicrotask(() => this._applyCompareOverlay());
   }
 
   _refreshHeatmapColors(wrap, grid) {

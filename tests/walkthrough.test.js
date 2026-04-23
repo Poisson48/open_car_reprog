@@ -122,14 +122,17 @@ async function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
     await page.waitForSelector('#drop-zone', { timeout: 5000 });
     await shot(page, '04-project-empty');
 
-    // All main toolbar buttons present & disabled-state correct
+    // All main toolbar buttons present & disabled-state correct. Note:
+    // #btn-open-damos-dl and #btn-report are hidden until a ROM is imported
+    // (they're meaningless without one).
     const toolbarWhenEmpty = {
       '#btn-goto': true,
       '#btn-edit-project': true,
       '#btn-auto-mods': true, // present but should be disabled
       '#btn-map-finder': true,
       '#btn-a2l-upload': true,
-      '#btn-open-damos-dl': true,
+      '#btn-open-damos-dl': false,
+      '#btn-report': false,
       '#btn-import-rom': true,
     };
     for (const [sel, shouldExist] of Object.entries(toolbarWhenEmpty)) {
