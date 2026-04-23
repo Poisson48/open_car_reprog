@@ -35,6 +35,7 @@ export async function renderHome(container, { onOpenProject }) {
       <div class="home-header">
         <h2>Projets</h2>
         <input type="search" class="home-search" id="project-search" placeholder="Rechercher un projet, un véhicule, une immat…">
+        <button class="btn btn-sm" id="btn-batch-apply" title="Appliquer un template véhicule à plusieurs projets en une passe">⚡ Batch apply…</button>
         <button class="btn btn-primary" id="btn-new">+ Nouveau projet</button>
       </div>
       <div class="project-grid" id="project-grid">
@@ -47,6 +48,7 @@ export async function renderHome(container, { onOpenProject }) {
   populateEcuSelect(document.getElementById('np-ecu'), 'edc16c34');
 
   container.querySelector('#btn-new').addEventListener('click', () => showNewProjectModal());
+  container.querySelector('#btn-batch-apply').addEventListener('click', () => showBatchApplyModal(() => loadProjects()));
 
   let allProjects = [];
 
@@ -277,4 +279,116 @@ export async function showEditModal(project, onSaved) {
     document.getElementById('ep-cancel').replaceWith(document.getElementById('ep-cancel').cloneNode(true));
     document.getElementById('ep-save').replaceWith(document.getElementById('ep-save').cloneNode(true));
   }
+}
+
+async function showBatchApplyModal(onDone) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-batch-apply';
+  overlay.innerHTML = `
+    <div class="modal" style="min-width:560px;max-width:760px;max-height:85vh;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;margin-bottom:12px">
+        <h2 style="flex:1">⚡ Batch apply — appliquer un template à plusieurs projets</h2>
+        <button class="btn btn-sm" id="ba-close">✕</button>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:4px">Template véhicule</label>
+        <select id="ba-template" style="width:100%;padding:5px 8px;background:var(--panel);border:1px solid var(--border);color:var(--text);font-size:12px"></select>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:4px">Projets cibles</label>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <button class="btn btn-sm" id="ba-all">Tout cocher</button>
+          <button class="btn btn-sm" id="ba-none">Rien cocher</button>
+          <span id="ba-count" style="font-size:11px;color:var(--text-dim)"></span>
+        </div>
+        <div id="ba-projects" style="max-height:240px;overflow-y:auto;border:1px solid var(--border);padding:6px"></div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:4px">Message de commit (optionnel)</label>
+        <input type="text" id="ba-msg" placeholder="batch: Stage 1 flotte 2026" style="width:100%;padding:5px 8px;background:var(--panel);border:1px solid var(--border);color:var(--text);font-size:12px">
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="ba-cancel">Annuler</button>
+        <button class="btn btn-primary" id="ba-apply">Appliquer</button>
+      </div>
+      <div id="ba-results" style="margin-top:12px;max-height:240px;overflow-y:auto;font-size:11px;font-family:monospace"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.querySelector('#ba-close').addEventListener('click', close);
+  overlay.querySelector('#ba-cancel').addEventListener('click', close);
+
+  const [templates, projects] = await Promise.all([
+    api.listTemplates(),
+    api.listProjects()
+  ]);
+
+  const selTpl = overlay.querySelector('#ba-template');
+  selTpl.innerHTML = templates.map(t => `<option value="${t.id}" data-applies="${(t.appliesTo || []).join(',')}">${t.name} — ${(t.appliesTo || []).join(', ')}</option>`).join('');
+
+  const listEl = overlay.querySelector('#ba-projects');
+  const countEl = overlay.querySelector('#ba-count');
+
+  function renderProjectList() {
+    const applies = selTpl.selectedOptions[0]?.dataset.applies?.split(',') || [];
+    const compatible = projects.filter(p => p.hasRom && applies.includes(p.ecu));
+    listEl.innerHTML = compatible.length
+      ? compatible.map(p => `
+        <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer">
+          <input type="checkbox" class="ba-chk" data-id="${p.id}" checked>
+          <span style="flex:1">${p.name} <span style="color:var(--text-dim)">(${p.ecu?.toUpperCase()})</span></span>
+          <span style="color:var(--text-dim);font-size:10px">${p.vehicle || ''}</span>
+        </label>`).join('')
+      : '<div style="padding:12px;color:var(--text-dim);font-style:italic">Aucun projet compatible avec ce template.</div>';
+    updateCount();
+    listEl.querySelectorAll('.ba-chk').forEach(c => c.addEventListener('change', updateCount));
+  }
+  function updateCount() {
+    const n = listEl.querySelectorAll('.ba-chk:checked').length;
+    const total = listEl.querySelectorAll('.ba-chk').length;
+    countEl.textContent = `${n} / ${total} projet(s) coché(s)`;
+  }
+  selTpl.addEventListener('change', renderProjectList);
+  overlay.querySelector('#ba-all').addEventListener('click', () => {
+    listEl.querySelectorAll('.ba-chk').forEach(c => { c.checked = true; });
+    updateCount();
+  });
+  overlay.querySelector('#ba-none').addEventListener('click', () => {
+    listEl.querySelectorAll('.ba-chk').forEach(c => { c.checked = false; });
+    updateCount();
+  });
+  renderProjectList();
+
+  overlay.querySelector('#ba-apply').addEventListener('click', async () => {
+    const ids = Array.from(listEl.querySelectorAll('.ba-chk:checked')).map(c => c.dataset.id);
+    if (!ids.length) { alert('Aucun projet sélectionné'); return; }
+    const tid = selTpl.value;
+    const msg = overlay.querySelector('#ba-msg').value.trim();
+    const resEl = overlay.querySelector('#ba-results');
+    resEl.innerHTML = '<div>En cours…</div>';
+    try {
+      const r = await fetch(`/api/templates/${tid}/batch-apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectIds: ids, commitMessage: msg })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'batch failed');
+      resEl.innerHTML = data.outcomes.map(o => {
+        const icon = o.ok ? '✓' : '✗';
+        const color = o.ok ? 'var(--accent2)' : 'var(--danger)';
+        const detail = o.ok
+          ? `${o.result.stage1?.length || 0} maps · ${o.result.autoMods?.length || 0} mods · commit ${o.commit ? o.commit.slice(0, 8) : '—'}`
+          : o.error;
+        return `<div style="color:${color};padding:2px 0">${icon} <strong>${o.name || o.projectId}</strong> — ${detail}</div>`;
+      }).join('');
+      if (onDone) onDone();
+    } catch (e) {
+      resEl.innerHTML = `<div style="color:var(--danger)">Erreur : ${e.message}</div>`;
+    }
+  });
 }

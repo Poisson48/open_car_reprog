@@ -25,6 +25,7 @@ export const api = {
 
   // Projects
   listProjects: () => req('GET', '/api/projects'),
+  listTemplates: () => req('GET', '/api/templates'),
   createProject: (data) => req('POST', '/api/projects', data),
   getProject: (id) => req('GET', `/api/projects/${id}`),
   updateProject: (id, data) => req('PATCH', `/api/projects/${id}`, data),

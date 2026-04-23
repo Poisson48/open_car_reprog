@@ -1061,6 +1061,56 @@ app.post('/api/projects/:id/apply-template/:tid', async (req, res) => {
   }
 });
 
+// Batch apply : applique un template à N projets d'une flotte en une requête.
+// Body : { projectIds: [id1, id2, ...], commitMessage?: "..." }
+// Chaque projet est traité indépendamment (une erreur sur l'un n'interrompt
+// pas les autres) et reçoit un commit git automatique.
+app.post('/api/templates/:tid/batch-apply', express.json(), async (req, res) => {
+  try {
+    const template = getTemplate(req.params.tid);
+    if (!template) return res.status(404).json({ error: 'Unknown template' });
+
+    const { projectIds, commitMessage } = req.body || {};
+    if (!Array.isArray(projectIds) || projectIds.length === 0) {
+      return res.status(400).json({ error: 'projectIds must be a non-empty array' });
+    }
+
+    const outcomes = [];
+    for (const pid of projectIds) {
+      const proj = await pm.get(pid);
+      if (!proj) { outcomes.push({ projectId: pid, ok: false, error: 'not found' }); continue; }
+      if (!proj.hasRom) { outcomes.push({ projectId: pid, ok: false, error: 'no ROM' }); continue; }
+      if (!template.appliesTo.includes(proj.ecu)) {
+        outcomes.push({ projectId: pid, name: proj.name, ok: false, error: `ECU ${proj.ecu} incompatible` });
+        continue;
+      }
+      try {
+        const result = await applyTemplateToProject(proj, template);
+        // Auto-commit avec un message identique sur tous les projets, pour
+        // que le tuneur retrouve facilement le batch dans le log de chaque
+        // projet.
+        const gm = new GitManager(pm.getProjectDir(proj.id));
+        const msg = commitMessage?.trim() || `batch: ${template.name || template.id}`;
+        const commit = await gm.commit(msg).catch(e => ({ error: e.message }));
+        outcomes.push({
+          projectId: pid,
+          name: proj.name,
+          ok: true,
+          result,
+          commit: commit?.hash || null,
+          commitError: commit?.error || null
+        });
+      } catch (e) {
+        outcomes.push({ projectId: pid, name: proj.name, ok: false, error: e.message });
+      }
+    }
+
+    res.json({ template: template.id, count: outcomes.length, outcomes });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Map-Finder — auto-détection de cartographies sans A2L ─────────────────────
 // Scanne la ROM pour des blocs `Kf_Xs16_Ys16_Ws16` (header nx/ny inline +
 // axes monotones + data smooth). Côté serveur parce que l'upload round-trip
