@@ -389,7 +389,67 @@ export async function renderProject(container, { projectId, onBack }) {
     });
 
     const a2lInput = document.getElementById('a2l-file-input');
-    document.getElementById('btn-a2l-upload')?.addEventListener('click', () => a2lInput?.click());
+    // Click on 📑 A2L shows a small menu : upload / remove (if custom loaded) /
+    // download current. Au lieu d'un simple click qui triggerait le file input,
+    // on a maintenant un choix.
+    document.getElementById('btn-a2l-upload')?.addEventListener('click', () => showA2lMenu());
+
+    async function showA2lMenu() {
+      let info;
+      try { info = await (await fetch(`/api/projects/${projectId}/a2l/info`)).json(); }
+      catch { info = { custom: false }; }
+
+      const existing = document.getElementById('a2l-menu-modal');
+      if (existing) existing.remove();
+      const overlay = document.createElement('div');
+      overlay.id = 'a2l-menu-modal';
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal" style="min-width:520px;max-width:640px">
+          <div style="display:flex;align-items:center;margin-bottom:12px">
+            <h2 style="flex:1">📑 Gestion A2L / damos</h2>
+            <button class="btn btn-sm" id="a2l-menu-close">✕</button>
+          </div>
+          <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">
+            Source actuelle :
+            ${info.custom
+              ? `<strong style="color:var(--accent2)">Custom</strong> — <code>${info.fileName || 'custom.a2l'}</code> (${info.characteristicsCount || 0} caractéristiques)`
+              : `<strong>Catalog ECU</strong> (${info.ecuDefault || 'edc16c34'} damos de référence)`}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+            <button class="btn btn-primary" id="a2l-menu-upload">📤 Uploader un A2L custom (.a2l)</button>
+            ${info.custom ? `<button class="btn btn-danger" id="a2l-menu-remove">🗑️ Supprimer le custom A2L → retour au catalog</button>` : ''}
+            <a class="btn" href="/api/projects/${projectId}/open-damos.a2l" download="open_damos_${(project.ecu||'ecu')}.a2l">🧬 Télécharger open_damos A2L (relocalisé pour cette ROM)</a>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:8px">
+            <strong>Astuce</strong> : si ton damos A2L ne matche pas ta ROM (badge 🔴 mismatch), supprime-le et uploade l'open_damos relocalisé à la place — les paramètres à gauche seront nommés correctement pour ta ROM.
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+      overlay.querySelector('#a2l-menu-close').addEventListener('click', () => overlay.remove());
+      overlay.querySelector('#a2l-menu-upload').addEventListener('click', () => {
+        overlay.remove();
+        a2lInput?.click();
+      });
+      overlay.querySelector('#a2l-menu-remove')?.addEventListener('click', async () => {
+        if (!confirm('Supprimer le custom A2L de ce projet ? Les paramètres retomberont sur le damos catalog ECU.')) return;
+        try {
+          await fetch(`/api/projects/${projectId}/a2l`, { method: 'DELETE' });
+          project = await api.getProject(projectId);
+          updateBreadcrumb();
+          await paramPanel.refresh();
+          setStatus('Custom A2L supprimé — retour au damos catalog');
+          // Refresh damos-match badge
+          fetch(`/api/projects/${projectId}/a2l/match`).then(r => r.json()).then(updateDamosMatchBadge).catch(() => {});
+          overlay.remove();
+        } catch (err) {
+          alert('Suppression échouée : ' + err.message);
+        }
+      });
+    }
+
     a2lInput?.addEventListener('change', async (e) => {
       const f = e.target.files?.[0];
       if (!f) return;
@@ -400,6 +460,8 @@ export async function renderProject(container, { projectId, onBack }) {
         updateBreadcrumb();
         await paramPanel.refresh();
         setStatus(`A2L "${info.fileName}" chargé — ${info.characteristicsCount} caractéristiques`);
+        // Refresh damos-match badge with the new A2L
+        fetch(`/api/projects/${projectId}/a2l/match`).then(r => r.json()).then(updateDamosMatchBadge).catch(() => {});
       } catch (err) {
         alert('Import A2L échoué : ' + err.message);
         setStatus('Erreur import A2L');

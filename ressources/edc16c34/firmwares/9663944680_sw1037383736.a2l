@@ -1,0 +1,2411 @@
+/*
+ * ═══════════════════════════════════════════════════════════════════
+ *  OPEN_DAMOS — fichier A2L généré pour un firmware spécifique
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ *  Calculateur     : EDC16C34-4.11 (edc16c34)
+ *  Part Bosch      : 0281012620
+ *  Part PSA / SW   : 9663944680 / SW 1037383736
+ *  Variante HW     : 9659614980
+ *  Moteur          : DV6TED4 1.6 HDi 75cv
+ *  Véhicules       : Citroën Berlingo II 1.6 HDi 75cv, Peugeot Partner 1.6 HDi 75cv
+ *  Source IDs      : ecudiag.es + JeanLucPons/DTCController (CarInfo.java)
+ *
+ *  Généré par      : open_damos 1.1.0 + auto-find heuristic
+ *  Date            : 2026-04-23T11:00:19.732Z
+ *  Entries         : 20 nommées + 151 auto-détectées
+ *  Licence         : CC0-1.0 (domaine public)
+ *
+ *  Usage WinOLS    : File → Read assignment file → ce fichier
+ *  Usage open-car-reprog : upload via 📑 A2L dans le toolbar projet
+ *
+ *  ATTENTION — les entries "Map_<addr>" sont auto-détectées et non
+ *  identifiées. Leurs axes et data n'ont pas d'unité connue — à
+ *  identifier par comparaison avec une ROM tunée ou datalog avant
+ *  modification.
+ */
+ASAP2_VERSION 1 60
+/begin PROJECT OPEN_DAMOS "open_damos — EDC16C34 Bosch PSA"
+  /begin HEADER "Damos libre et gratuit pour Bosch EDC16C34 PSA (DV6TED4, 1.6 HDi 75/90/110 cv : Berlingo, Partner, 206, 207, 307, 308, 407, C3, C4, Fiesta TDCi, Mazda 2/3 MZ-CD). Chaque entrée inclut une empreinte d'axes permettant la relocalisation automatique sur n'importe quel firmware de la famille, sans besoin du damos Bosch propriétaire. Exportable en A2L ASAP2 standard (utilisable dans WinOLS, TunerPro, EcuFlash, open-car-reprog). — build spécifique firmware 1037383736 (Citroën Berlingo II 1.6 HDi 75cv, Peugeot Partner 1.6 HDi 75cv)."
+    VERSION "1.1.0+auto"
+    PROJECT_NO "open_damos-edc16c34"
+  /end HEADER
+  /begin MODULE EDC16C34 "ECU module"
+
+    /* ── RECORD_LAYOUTs ─────────────────────────────────── */
+    /begin RECORD_LAYOUT Kf_Xs16_Ys16_Ws16
+      NO_AXIS_PTS_X 1 UWORD
+      NO_AXIS_PTS_Y 2 UWORD
+      AXIS_PTS_X 3 SWORD INDEX_INCR DIRECT
+      AXIS_PTS_Y 4 SWORD INDEX_INCR DIRECT
+      FNC_VALUES 5 SWORD COLUMN_DIR DIRECT
+    /end RECORD_LAYOUT
+
+    /begin RECORD_LAYOUT Kl_Xs16_Ws16
+      NO_AXIS_PTS_X 1 UWORD
+      AXIS_PTS_X 2 SWORD INDEX_INCR DIRECT
+      FNC_VALUES 3 SWORD COLUMN_DIR DIRECT
+    /end RECORD_LAYOUT
+
+    /begin RECORD_LAYOUT Kw_Ws16
+      FNC_VALUES 1 SWORD COLUMN_DIR DIRECT
+    /end RECORD_LAYOUT
+
+    /* ── COMPU_METHODs ──────────────────────────────────── */
+    /begin COMPU_METHOD CM_0_1_0_Nm
+      "Linear conversion f=0.1 offset=0"
+      RAT_FUNC
+      "%.3"
+      "Nm"
+      COEFFS 0 1 0 0 0 0.1
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_1_0_rpm
+      "Linear conversion f=1 offset=0"
+      RAT_FUNC
+      "%.3"
+      "rpm"
+      COEFFS 0 1 0 0 0 1
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_0_01220703125_0__
+      "Linear conversion f=0.01220703125 offset=0"
+      RAT_FUNC
+      "%.3"
+      "%"
+      COEFFS 0 1 0 0 0 0.01220703125
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_0_2_0_Nm
+      "Linear conversion f=0.2 offset=0"
+      RAT_FUNC
+      "%.3"
+      "Nm"
+      COEFFS 0 1 0 0 0 0.2
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_0_01_0_km_h
+      "Linear conversion f=0.01 offset=0"
+      RAT_FUNC
+      "%.3"
+      "km/h"
+      COEFFS 0 1 0 0 0 0.01
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_0_01_0_mg_cyc
+      "Linear conversion f=0.01 offset=0"
+      RAT_FUNC
+      "%.3"
+      "mg/cyc"
+      COEFFS 0 1 0 0 0 0.01
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_100_0_hPa
+      "Linear conversion f=100 offset=0"
+      RAT_FUNC
+      "%.3"
+      "hPa"
+      COEFFS 0 1 0 0 0 100
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_1_0_hPa
+      "Linear conversion f=1 offset=0"
+      RAT_FUNC
+      "%.3"
+      "hPa"
+      COEFFS 0 1 0 0 0 1
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_0_001_0__
+      "Linear conversion f=0.001 offset=0"
+      RAT_FUNC
+      "%.3"
+      "-"
+      COEFFS 0 1 0 0 0 0.001
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_0_1_0_mg_Hub
+      "Linear conversion f=0.1 offset=0"
+      RAT_FUNC
+      "%.3"
+      "mg/Hub"
+      COEFFS 0 1 0 0 0 0.1
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_0_0234375_0_deg_CrS
+      "Linear conversion f=0.0234375 offset=0"
+      RAT_FUNC
+      "%.3"
+      "deg CrS"
+      COEFFS 0 1 0 0 0 0.0234375
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_0_0001220703125_0__
+      "Linear conversion f=0.0001220703125 offset=0"
+      RAT_FUNC
+      "%.3"
+      "-"
+      COEFFS 0 1 0 0 0 0.0001220703125
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_0_1_0_Kg_h
+      "Linear conversion f=0.1 offset=0"
+      RAT_FUNC
+      "%.3"
+      "Kg/h"
+      COEFFS 0 1 0 0 0 0.1
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_0_01_0_mg_hub
+      "Linear conversion f=0.01 offset=0"
+      RAT_FUNC
+      "%.3"
+      "mg/hub"
+      COEFFS 0 1 0 0 0 0.01
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_4_887585532746823_0_mV
+      "Linear conversion f=4.887585532746823 offset=0"
+      RAT_FUNC
+      "%.3"
+      "mV"
+      COEFFS 0 1 0 0 0 4.887585532746823
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_0_1_0_kg_m_3
+      "Linear conversion f=0.1 offset=0"
+      RAT_FUNC
+      "%.3"
+      "kg/m^3"
+      COEFFS 0 1 0 0 0 0.1
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_0_1_0_deg_C
+      "Linear conversion f=0.1 offset=0"
+      RAT_FUNC
+      "%.3"
+      "deg C"
+      COEFFS 0 1 0 0 0 0.1
+    /end COMPU_METHOD
+
+    /begin COMPU_METHOD CM_1_0__
+      "Linear conversion f=1 offset=0"
+      RAT_FUNC
+      "%.3"
+      "-"
+      COEFFS 0 1 0 0 0 1
+    /end COMPU_METHOD
+
+    /* ── CHARACTERISTICs ───────────────────────────────── */
+    /begin CHARACTERISTIC AccPed_trqEngHiGear_MAP
+      "Driver's wish — couple moteur demandé par la pédale d'accélérateur sur les rapports hauts (4e/5e)."
+      MAP
+      0x1C162C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_0_1_0_Nm
+      -3276.8
+      3276.7000000000003
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0_rpm 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_01220703125_0__ 10 -400 399.98779296875 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC AccPed_trqEngLoGear_MAP
+      "Driver's wish — couple moteur demandé par la pédale d'accélérateur sur les rapports bas (1re/2e/3e)."
+      MAP
+      0x1C1AB4
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_0_1_0_Nm
+      -3276.8
+      3276.7000000000003
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0_rpm 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_01220703125_0__ 10 -400 399.98779296875 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC AccPed_trqPrp_MAP
+      "Driver's wish PROPULSION — couple demandé pour le mastershift (boîte auto/semi-auto). 16×16 vs VSSCD_v (vitesse véhicule) et AccPed_rChkdVal (pédale)."
+      MAP
+      0x1C18D2
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_0_2_0_Nm
+      -6553.6
+      6553.400000000001
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_01_0_km_h 16 -327.68 327.67 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_01220703125_0__ 16 -400 399.98779296875 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC FMTC_trq2qBas_MAP
+      "Conversion couple → quantité carburant injectée (base). Pivot central du Stage 1 : plus de couple demandé = plus d'injection."
+      MAP
+      0x1CCAD2
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_0_01_0_mg_cyc
+      -327.68
+      327.67
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0_rpm 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_1_0_Nm 16 -3276.8 3276.7000000000003 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Rail_pSetPointBase_MAP
+      "Consigne de pression rail (common rail) de base, fonction du régime et de la quantité injectée. Faut la monter pour injecter plus de carburant sans perte de combustion."
+      MAP
+      0x1F0864
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_100_0_hPa
+      -3276800
+      3276700
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0_rpm 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_01_0_mg_cyc 16 -327.68 327.67 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC EngPrt_trqAPSLim_MAP
+      "Limite de couple pour protection moteur (turbocharger protection). Sans la relever, elle clamp ton gain Stage 1 → map la plus importante à toucher."
+      MAP
+      0x1CB482
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_0_1_0_Nm
+      -3276.8
+      3276.7000000000003
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0_hPa 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0_rpm 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC FlMng_rLmbdSmk_MAP
+      "SMOKE LIMITER — consigne lambda mini vs débit d'air. C'est ce qui te bloque en fumée noire si tu ne peux pas monter l'injection assez haut. Baisser (ex. 1.2 → 1.1) pour autoriser plus d'injection avant le smoke cut."
+      MAP
+      0x1C931C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_0_001_0__
+      -32.768
+      32.767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0_rpm 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_1_0_mg_Hub 16 -3276.8 3276.7000000000003 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC InjCrv_phiMI1Bas2_MAP
+      "Start of energising Main Injection 1 (SOE MI1) — angle d'injection principal, base. Avancer de 1-2° pour Stage 1 peut améliorer les basses charges."
+      MAP
+      0x1D5E24
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_0_0234375_0_deg_CrS
+      -768
+      767.9765625
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0_rpm 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_01_0_mg_cyc 16 -327.68 327.67 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC AFSCD_facCorrVal_MAP
+      "Facteur de correction débit d'air (vs régime / qty carburant). Modifié par certains tuners pour compenser l'AGR."
+      MAP
+      0x1C2DFE
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_0_0001220703125_0__
+      -4
+      3.9998779296875
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0_rpm 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_01_0_mg_cyc 16 -327.68 327.67 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC AFSCD_dmAirSubsVal_MAP
+      "Valeur de substitution du débit d'air (modèle prédictif). Utilisée quand le capteur MAF est défaillant — peut être relevée pour forcer des valeurs plus optimistes."
+      MAP
+      0x1C2BB6
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_0_1_0_Kg_h
+      -3276.8
+      3276.7000000000003
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0_rpm 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_01_0_mg_cyc 16 -327.68 327.67 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Prp_rPrp_MAP
+      "Map inverse de la demande conducteur pour le mastershift (sortie couple → position pédale équivalente)."
+      MAP
+      0x1EF7B4
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_0_01220703125_0__
+      -400
+      399.98779296875
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_01_0_km_h 16 -327.68 327.67 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_2_0_Nm 16 -6553.6 6553.400000000001 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Rail_pSetPointMax_MAP
+      "Limiteur max de pression rail (fonction régime + qty injectée). Relever uniquement si tu pousses le Stage 2+ et que Rail_pSetPointBase atteint ce plafond."
+      MAP
+      0x1F1632
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_100_0_hPa
+      -3276800
+      3276700
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0_rpm 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_01_0_mg_cyc 8 -327.68 327.67 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC EngPrt_qLim_CUR
+      "Limiteur de quantité carburant (protection moteur) en fonction du régime. Courbe plafond à relever pour ne pas clamper un gros Stage 1/2."
+      CURVE
+      0x1CB40C
+      Kl_Xs16_Ws16
+      0
+      CM_0_01_0_mg_hub
+      -327.68
+      327.67
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0_rpm 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC AFSCD_dmLin_CUR
+      "Courbe de linéarisation du capteur MAF (voltage → débit d'air). À connaître mais pas à toucher en Stage 1 standard."
+      CURVE
+      0x1C24EC
+      Kl_Xs16_Ws16
+      0
+      CM_0_1_0_Kg_h
+      -3276.8
+      3276.7000000000003
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_4_887585532746823_0_mV 15 -160156.4027370479 160151.51515151517 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC FlSys_rhoTFuel_CUR
+      "Correction de densité carburant en fonction de la température. Pas critique en Stage 1 mais utile pour certaines stratégies lambda."
+      CURVE
+      0x1CCA70
+      Kl_Xs16_Ws16
+      0
+      CM_0_1_0_kg_m_3
+      -3276.8
+      3276.7000000000003
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_0_1_0_deg_C 12 -3276.8 3276.7000000000003 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC AccPed_trqNMRMax_C
+      "Couple max autorisé dans la 'non-monitored range' (mode dégradé pédale). Stock 100 Nm — à monter si tu relèves les Stage 1 de beaucoup."
+      VALUE
+      0x1C1CF8
+      Kw_Ws16
+      0
+      CM_0_2_0_Nm
+      -6553.6
+      6553.400000000001
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC AccPed_nLimNMR_C
+      "Seuil régime moteur 'non-monitored range'. Stock 1500 rpm."
+      VALUE
+      0x1C1610
+      Kw_Ws16
+      0
+      CM_1_0_rpm
+      -32768
+      32767
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC AirCtl_nOvrRun_C
+      "Seuil de régime pour la condition overrun (levée de pied). Baisser → pop&bang s'active plus souvent. Attention à ne pas descendre sous 1500 rpm (turbo)."
+      VALUE
+      0x1C446E
+      Kw_Ws16
+      0
+      CM_1_0_rpm
+      -32768
+      32767
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC AirCtl_qOvrRun_C
+      "Quantité de carburant injectée pendant l'overrun (pop&bang). Valeur stock = 50 (0.5 mg/hub), à monter à 500-2000 pour pétarades."
+      VALUE
+      0x1C44DC
+      Kw_Ws16
+      0
+      CM_0_01_0_mg_hub
+      -327.68
+      327.67
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC AirCtl_nMin_C
+      "Seuil de régime de coupure EGR. Le relever à 6000-8000 rpm (valeur raw 0x1770 ou 0x1F40) désactive l'EGR sur toute la plage d'utilisation normale."
+      VALUE
+      0x1C45E0
+      Kw_Ws16
+      0
+      CM_1_0_rpm
+      -32768
+      32767
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C3B5E
+      "Cartographie auto-détectée (map-finder score 0.99, hors open_damos)."
+      MAP
+      0x1C3B5E
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1ED9EC
+      "Cartographie auto-détectée (map-finder score 0.99, hors open_damos)."
+      MAP
+      0x1ED9EC
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CF5A4
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1CF5A4
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E8A8C
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1E8A8C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CCF5A
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1CCF5A
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CD3E2
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1CD3E2
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CF2D8
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1CF2D8
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E9158
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1E9158
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1F0F30
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1F0F30
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D3D34
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1D3D34
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D4150
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1D4150
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D4DA4
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1D4DA4
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C36D2
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1C36D2
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EB9FC
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1EB9FC
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D51C0
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1D51C0
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EA31E
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1EA31E
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EEE00
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1EEE00
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EF4CC
+      "Cartographie auto-détectée (map-finder score 0.98, hors open_damos)."
+      MAP
+      0x1EF4CC
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D6240
+      "Cartographie auto-détectée (map-finder score 0.97, hors open_damos)."
+      MAP
+      0x1D6240
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EB574
+      "Cartographie auto-détectée (map-finder score 0.97, hors open_damos)."
+      MAP
+      0x1EB574
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EAC64
+      "Cartographie auto-détectée (map-finder score 0.97, hors open_damos)."
+      MAP
+      0x1EAC64
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D4988
+      "Cartographie auto-détectée (map-finder score 0.97, hors open_damos)."
+      MAP
+      0x1D4988
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 17 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C3FE6
+      "Cartographie auto-détectée (map-finder score 0.96, hors open_damos)."
+      MAP
+      0x1C3FE6
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E7510
+      "Cartographie auto-détectée (map-finder score 0.96, hors open_damos)."
+      MAP
+      0x1E7510
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 20 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 11 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D59F8
+      "Cartographie auto-détectée (map-finder score 0.95, hors open_damos)."
+      MAP
+      0x1D59F8
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 18 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1F118C
+      "Cartographie auto-détectée (map-finder score 0.95, hors open_damos)."
+      MAP
+      0x1F118C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DC440
+      "Cartographie auto-détectée (map-finder score 0.94, hors open_damos)."
+      MAP
+      0x1DC440
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 13 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DC85C
+      "Cartographie auto-détectée (map-finder score 0.94, hors open_damos)."
+      MAP
+      0x1DC85C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 13 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E3F20
+      "Cartographie auto-détectée (map-finder score 0.94, hors open_damos)."
+      MAP
+      0x1E3F20
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C6238
+      "Cartographie auto-détectée (map-finder score 0.94, hors open_damos)."
+      MAP
+      0x1C6238
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1F0188
+      "Cartographie auto-détectée (map-finder score 0.93, hors open_damos)."
+      MAP
+      0x1F0188
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 14 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 14 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EB0EC
+      "Cartographie auto-détectée (map-finder score 0.93, hors open_damos)."
+      MAP
+      0x1EB0EC
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 14 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E2A94
+      "Cartographie auto-détectée (map-finder score 0.93, hors open_damos)."
+      MAP
+      0x1E2A94
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DCEBC
+      "Cartographie auto-détectée (map-finder score 0.92, hors open_damos)."
+      MAP
+      0x1DCEBC
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 13 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CC33C
+      "Cartographie auto-détectée (map-finder score 0.92, hors open_damos)."
+      MAP
+      0x1CC33C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E6176
+      "Cartographie auto-détectée (map-finder score 0.92, hors open_damos)."
+      MAP
+      0x1E6176
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 20 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CBCE4
+      "Cartographie auto-détectée (map-finder score 0.92, hors open_damos)."
+      MAP
+      0x1CBCE4
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E2EB0
+      "Cartographie auto-détectée (map-finder score 0.92, hors open_damos)."
+      MAP
+      0x1E2EB0
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E9824
+      "Cartographie auto-détectée (map-finder score 0.92, hors open_damos)."
+      MAP
+      0x1E9824
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E9A68
+      "Cartographie auto-détectée (map-finder score 0.92, hors open_damos)."
+      MAP
+      0x1E9A68
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CC82A
+      "Cartographie auto-détectée (map-finder score 0.92, hors open_damos)."
+      MAP
+      0x1CC82A
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 13 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E3B04
+      "Cartographie auto-détectée (map-finder score 0.92, hors open_damos)."
+      MAP
+      0x1E3B04
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 18 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DEE3A
+      "Cartographie auto-détectée (map-finder score 0.91, hors open_damos)."
+      MAP
+      0x1DEE3A
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D665C
+      "Cartographie auto-détectée (map-finder score 0.91, hors open_damos)."
+      MAP
+      0x1D665C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 14 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E8848
+      "Cartographie auto-détectée (map-finder score 0.91, hors open_damos)."
+      MAP
+      0x1E8848
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CAC8E
+      "Cartographie auto-détectée (map-finder score 0.90, hors open_damos)."
+      MAP
+      0x1CAC8E
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C4D1C
+      "Cartographie auto-détectée (map-finder score 0.90, hors open_damos)."
+      MAP
+      0x1C4D1C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D6A78
+      "Cartographie auto-détectée (map-finder score 0.89, hors open_damos)."
+      MAP
+      0x1D6A78
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 17 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 20 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E5426
+      "Cartographie auto-détectée (map-finder score 0.89, hors open_damos)."
+      MAP
+      0x1E5426
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 24 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E5ACE
+      "Cartographie auto-détectée (map-finder score 0.89, hors open_damos)."
+      MAP
+      0x1E5ACE
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 24 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D88C2
+      "Cartographie auto-détectée (map-finder score 0.89, hors open_damos)."
+      MAP
+      0x1D88C2
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 13 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C4FB8
+      "Cartographie auto-détectée (map-finder score 0.89, hors open_damos)."
+      MAP
+      0x1C4FB8
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1F1F64
+      "Cartographie auto-détectée (map-finder score 0.89, hors open_damos)."
+      MAP
+      0x1F1F64
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D77E8
+      "Cartographie auto-détectée (map-finder score 0.89, hors open_damos)."
+      MAP
+      0x1D77E8
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E36E8
+      "Cartographie auto-détectée (map-finder score 0.89, hors open_damos)."
+      MAP
+      0x1E36E8
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 14 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 17 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1F1C12
+      "Cartographie auto-détectée (map-finder score 0.89, hors open_damos)."
+      MAP
+      0x1F1C12
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C255E
+      "Cartographie auto-détectée (map-finder score 0.88, hors open_damos)."
+      MAP
+      0x1C255E
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E4580
+      "Cartographie auto-détectée (map-finder score 0.88, hors open_damos)."
+      MAP
+      0x1E4580
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E718E
+      "Cartographie auto-détectée (map-finder score 0.88, hors open_damos)."
+      MAP
+      0x1E718E
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C481C
+      "Cartographie auto-détectée (map-finder score 0.88, hors open_damos)."
+      MAP
+      0x1C481C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DE4E2
+      "Cartographie auto-détectée (map-finder score 0.88, hors open_damos)."
+      MAP
+      0x1DE4E2
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D76AC
+      "Cartographie auto-détectée (map-finder score 0.88, hors open_damos)."
+      MAP
+      0x1D76AC
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1F1A3A
+      "Cartographie auto-détectée (map-finder score 0.88, hors open_damos)."
+      MAP
+      0x1F1A3A
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C348E
+      "Cartographie auto-détectée (map-finder score 0.87, hors open_damos)."
+      MAP
+      0x1C348E
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D731A
+      "Cartographie auto-détectée (map-finder score 0.87, hors open_damos)."
+      MAP
+      0x1D731A
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C726A
+      "Cartographie auto-détectée (map-finder score 0.86, hors open_damos)."
+      MAP
+      0x1C726A
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CB5FE
+      "Cartographie auto-détectée (map-finder score 0.86, hors open_damos)."
+      MAP
+      0x1CB5FE
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C30BA
+      "Cartographie auto-détectée (map-finder score 0.85, hors open_damos)."
+      MAP
+      0x1C30BA
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D456C
+      "Cartographie auto-détectée (map-finder score 0.85, hors open_damos)."
+      MAP
+      0x1D456C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C6FD0
+      "Cartographie auto-détectée (map-finder score 0.84, hors open_damos)."
+      MAP
+      0x1C6FD0
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1F0CEC
+      "Cartographie auto-détectée (map-finder score 0.83, hors open_damos)."
+      MAP
+      0x1F0CEC
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EA868
+      "Cartographie auto-détectée (map-finder score 0.83, hors open_damos)."
+      MAP
+      0x1EA868
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1F2106
+      "Cartographie auto-détectée (map-finder score 0.83, hors open_damos)."
+      MAP
+      0x1F2106
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 9 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 11 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C6DE4
+      "Cartographie auto-détectée (map-finder score 0.82, hors open_damos)."
+      MAP
+      0x1C6DE4
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CB8D4
+      "Cartographie auto-détectée (map-finder score 0.82, hors open_damos)."
+      MAP
+      0x1CB8D4
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C4C18
+      "Cartographie auto-détectée (map-finder score 0.82, hors open_damos)."
+      MAP
+      0x1C4C18
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C1246
+      "Cartographie auto-détectée (map-finder score 0.82, hors open_damos)."
+      MAP
+      0x1C1246
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EEA4A
+      "Cartographie auto-détectée (map-finder score 0.81, hors open_damos)."
+      MAP
+      0x1EEA4A
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C7122
+      "Cartographie auto-détectée (map-finder score 0.81, hors open_damos)."
+      MAP
+      0x1C7122
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C6F2C
+      "Cartographie auto-détectée (map-finder score 0.81, hors open_damos)."
+      MAP
+      0x1C6F2C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D929E
+      "Cartographie auto-détectée (map-finder score 0.81, hors open_damos)."
+      MAP
+      0x1D929E
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1F192C
+      "Cartographie auto-détectée (map-finder score 0.80, hors open_damos)."
+      MAP
+      0x1F192C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C5960
+      "Cartographie auto-détectée (map-finder score 0.80, hors open_damos)."
+      MAP
+      0x1C5960
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C4598
+      "Cartographie auto-détectée (map-finder score 0.80, hors open_damos)."
+      MAP
+      0x1C4598
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D070C
+      "Cartographie auto-détectée (map-finder score 0.79, hors open_damos)."
+      MAP
+      0x1D070C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D0950
+      "Cartographie auto-détectée (map-finder score 0.79, hors open_damos)."
+      MAP
+      0x1D0950
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C1870
+      "Cartographie auto-détectée (map-finder score 0.79, hors open_damos)."
+      MAP
+      0x1C1870
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 11 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C2110
+      "Cartographie auto-détectée (map-finder score 0.79, hors open_damos)."
+      MAP
+      0x1C2110
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 11 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C6442
+      "Cartographie auto-détectée (map-finder score 0.79, hors open_damos)."
+      MAP
+      0x1C6442
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C1ECC
+      "Cartographie auto-détectée (map-finder score 0.79, hors open_damos)."
+      MAP
+      0x1C1ECC
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C5FBE
+      "Cartographie auto-détectée (map-finder score 0.78, hors open_damos)."
+      MAP
+      0x1C5FBE
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E83C0
+      "Cartographie auto-détectée (map-finder score 0.78, hors open_damos)."
+      MAP
+      0x1E83C0
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CA9F0
+      "Cartographie auto-détectée (map-finder score 0.78, hors open_damos)."
+      MAP
+      0x1CA9F0
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D94E2
+      "Cartographie auto-détectée (map-finder score 0.78, hors open_damos)."
+      MAP
+      0x1D94E2
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 13 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CEA1C
+      "Cartographie auto-détectée (map-finder score 0.77, hors open_damos)."
+      MAP
+      0x1CEA1C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1ECC40
+      "Cartographie auto-détectée (map-finder score 0.77, hors open_damos)."
+      MAP
+      0x1ECC40
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CE1E0
+      "Cartographie auto-détectée (map-finder score 0.77, hors open_damos)."
+      MAP
+      0x1CE1E0
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 11 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EE136
+      "Cartographie auto-détectée (map-finder score 0.76, hors open_damos)."
+      MAP
+      0x1EE136
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CBA28
+      "Cartographie auto-détectée (map-finder score 0.76, hors open_damos)."
+      MAP
+      0x1CBA28
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 11 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C313A
+      "Cartographie auto-détectée (map-finder score 0.76, hors open_damos)."
+      MAP
+      0x1C313A
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E32CC
+      "Cartographie auto-détectée (map-finder score 0.76, hors open_damos)."
+      MAP
+      0x1E32CC
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C707E
+      "Cartographie auto-détectée (map-finder score 0.76, hors open_damos)."
+      MAP
+      0x1C707E
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EFBD2
+      "Cartographie auto-détectée (map-finder score 0.76, hors open_damos)."
+      MAP
+      0x1EFBD2
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D046E
+      "Cartographie auto-détectée (map-finder score 0.75, hors open_damos)."
+      MAP
+      0x1D046E
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E67BA
+      "Cartographie auto-détectée (map-finder score 0.75, hors open_damos)."
+      MAP
+      0x1E67BA
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 4 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 4 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DF256
+      "Cartographie auto-détectée (map-finder score 0.75, hors open_damos)."
+      MAP
+      0x1DF256
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 18 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1ED0FC
+      "Cartographie auto-détectée (map-finder score 0.74, hors open_damos)."
+      MAP
+      0x1ED0FC
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E433C
+      "Cartographie auto-détectée (map-finder score 0.74, hors open_damos)."
+      MAP
+      0x1E433C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DBB02
+      "Cartographie auto-détectée (map-finder score 0.74, hors open_damos)."
+      MAP
+      0x1DBB02
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DD100
+      "Cartographie auto-détectée (map-finder score 0.74, hors open_damos)."
+      MAP
+      0x1DD100
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DD51C
+      "Cartographie auto-détectée (map-finder score 0.74, hors open_damos)."
+      MAP
+      0x1DD51C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DDD54
+      "Cartographie auto-détectée (map-finder score 0.74, hors open_damos)."
+      MAP
+      0x1DDD54
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EC040
+      "Cartographie auto-détectée (map-finder score 0.73, hors open_damos)."
+      MAP
+      0x1EC040
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CE8C0
+      "Cartographie auto-détectée (map-finder score 0.73, hors open_damos)."
+      MAP
+      0x1CE8C0
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D7468
+      "Cartographie auto-détectée (map-finder score 0.73, hors open_damos)."
+      MAP
+      0x1D7468
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 16 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CB218
+      "Cartographie auto-détectée (map-finder score 0.73, hors open_damos)."
+      MAP
+      0x1CB218
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EE888
+      "Cartographie auto-détectée (map-finder score 0.73, hors open_damos)."
+      MAP
+      0x1EE888
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 9 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 9 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C71C6
+      "Cartographie auto-détectée (map-finder score 0.73, hors open_damos)."
+      MAP
+      0x1C71C6
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E6CB4
+      "Cartographie auto-détectée (map-finder score 0.72, hors open_damos)."
+      MAP
+      0x1E6CB4
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 9 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CA008
+      "Cartographie auto-détectée (map-finder score 0.72, hors open_damos)."
+      MAP
+      0x1CA008
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DE252
+      "Cartographie auto-détectée (map-finder score 0.72, hors open_damos)."
+      MAP
+      0x1DE252
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E7918
+      "Cartographie auto-détectée (map-finder score 0.72, hors open_damos)."
+      MAP
+      0x1E7918
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1E7B5C
+      "Cartographie auto-détectée (map-finder score 0.72, hors open_damos)."
+      MAP
+      0x1E7B5C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D55DC
+      "Cartographie auto-détectée (map-finder score 0.71, hors open_damos)."
+      MAP
+      0x1D55DC
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DCC78
+      "Cartographie auto-détectée (map-finder score 0.70, hors open_damos)."
+      MAP
+      0x1DCC78
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1F0094
+      "Cartographie auto-détectée (map-finder score 0.70, hors open_damos)."
+      MAP
+      0x1F0094
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 9 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EC422
+      "Cartographie auto-détectée (map-finder score 0.69, hors open_damos)."
+      MAP
+      0x1EC422
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C6E88
+      "Cartographie auto-détectée (map-finder score 0.69, hors open_damos)."
+      MAP
+      0x1C6E88
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CBF52
+      "Cartographie auto-détectée (map-finder score 0.69, hors open_damos)."
+      MAP
+      0x1CBF52
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C12D0
+      "Cartographie auto-détectée (map-finder score 0.68, hors open_damos)."
+      MAP
+      0x1C12D0
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EC7D8
+      "Cartographie auto-détectée (map-finder score 0.68, hors open_damos)."
+      MAP
+      0x1EC7D8
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CA198
+      "Cartographie auto-détectée (map-finder score 0.68, hors open_damos)."
+      MAP
+      0x1CA198
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1F179C
+      "Cartographie auto-détectée (map-finder score 0.67, hors open_damos)."
+      MAP
+      0x1F179C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C448A
+      "Cartographie auto-détectée (map-finder score 0.66, hors open_damos)."
+      MAP
+      0x1C448A
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DD938
+      "Cartographie auto-détectée (map-finder score 0.65, hors open_damos)."
+      MAP
+      0x1DD938
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 15 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1ECF84
+      "Cartographie auto-détectée (map-finder score 0.64, hors open_damos)."
+      MAP
+      0x1ECF84
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1ECAC8
+      "Cartographie auto-détectée (map-finder score 0.63, hors open_damos)."
+      MAP
+      0x1ECAC8
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CE0E6
+      "Cartographie auto-détectée (map-finder score 0.63, hors open_damos)."
+      MAP
+      0x1CE0E6
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D90E2
+      "Cartographie auto-détectée (map-finder score 0.63, hors open_damos)."
+      MAP
+      0x1D90E2
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EC59A
+      "Cartographie auto-détectée (map-finder score 0.62, hors open_damos)."
+      MAP
+      0x1EC59A
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C42B2
+      "Cartographie auto-détectée (map-finder score 0.60, hors open_damos)."
+      MAP
+      0x1C42B2
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CBEAC
+      "Cartographie auto-détectée (map-finder score 0.60, hors open_damos)."
+      MAP
+      0x1CBEAC
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CA5CE
+      "Cartographie auto-détectée (map-finder score 0.60, hors open_damos)."
+      MAP
+      0x1CA5CE
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1EC950
+      "Cartographie auto-détectée (map-finder score 0.56, hors open_damos)."
+      MAP
+      0x1EC950
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CA494
+      "Cartographie auto-détectée (map-finder score 0.55, hors open_damos)."
+      MAP
+      0x1CA494
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1C63B8
+      "Cartographie auto-détectée (map-finder score 0.54, hors open_damos)."
+      MAP
+      0x1C63B8
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1ECE0C
+      "Cartographie auto-détectée (map-finder score 0.54, hors open_damos)."
+      MAP
+      0x1ECE0C
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 12 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1D8F8E
+      "Cartographie auto-détectée (map-finder score 0.54, hors open_damos)."
+      MAP
+      0x1D8F8E
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1DAB12
+      "Cartographie auto-détectée (map-finder score 0.50, hors open_damos)."
+      MAP
+      0x1DAB12
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 10 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 8 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1F0610
+      "Cartographie auto-détectée (map-finder score 0.50, hors open_damos)."
+      MAP
+      0x1F0610
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 5 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC Map_1CE042
+      "Cartographie auto-détectée (map-finder score 0.50, hors open_damos)."
+      MAP
+      0x1CE042
+      Kf_Xs16_Ys16_Ws16
+      0
+      CM_1_0__
+      -32768
+      32767
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 7 -32768 32767 /end AXIS_DESCR
+      /begin AXIS_DESCR STD_AXIS NO_INPUT_QUANTITY CM_1_0__ 6 -32768 32767 /end AXIS_DESCR
+    /end CHARACTERISTIC
+
+  /end MODULE
+/end PROJECT
