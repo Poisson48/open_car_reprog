@@ -8,7 +8,7 @@ Toutes les routes sont sous `/api`. Le serveur écoute par défaut sur `http://l
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/version` | `{ "version": "0.3.0" }` depuis package.json |
+| GET | `/api/version` | `{ "version": "0.5.0" }` depuis package.json |
 | GET | `/api/ecu` | Liste du catalog : `[{ id, name, a2l, stage1, popbang }]` |
 
 ---
@@ -20,7 +20,7 @@ Toutes les routes sont sous `/api`. Le serveur écoute par défaut sur `http://l
 | GET | `/api/projects` | Liste tous les projets (plus récent d'abord) |
 | POST | `/api/projects` | Créer `{ name, ecu, description?, vehicle?, immat?, year? }` |
 | GET | `/api/projects/:id` | Détails d'un projet |
-| PATCH | `/api/projects/:id` | MAJ partielle : `name`, `description`, `vehicle`, `immat`, `year`, `ecu`, `displayAddressBase` |
+| PATCH | `/api/projects/:id` | MAJ partielle : `name`, `description`, `vehicle`, `immat`, `year`, `ecu`, `displayAddressBase`, `units` (`{ torque: "Nm"\|"lb_ft", temp: "C"\|"F" }`) |
 | DELETE | `/api/projects/:id` | Supprime le dossier entier du projet |
 
 ### Metadata
@@ -35,6 +35,7 @@ Toutes les routes sont sous `/api`. Le serveur écoute par défaut sur `http://l
   "year": "2005",
   "description": "Stage 1 + FAP off",
   "displayAddressBase": 0,
+  "units": { "torque": "Nm", "temp": "C" },
   "createdAt": "2026-04-21T21:23:45.000Z",
   "hasRom": true,
   "romName": "rom.bin",
@@ -148,8 +149,17 @@ curl 'http://localhost:3000/api/ecu/edc16c34/parameters?search=DPF&type=VALUE&li
 | GET | `/api/templates` | Tous les templates véhicule, toutes ECUs |
 | GET | `/api/projects/:id/templates` | Templates compatibles avec l'ECU du projet |
 | POST | `/api/projects/:id/apply-template/:tid` | Applique un template (Stage 1 + popbang + auto-mods) atomiquement |
+| POST | `/api/templates/:tid/batch-apply` | **Batch apply** d'un template à plusieurs projets. Body `{ projectIds: [...], commitMessage? }`. Chaque projet est traité isolément + auto-commit. Retourne `{ outcomes: [{ projectId, ok, result?, commit?, error? }] }`. |
 
 D'autres modifications (DPF, EGR, Swirl, Speed limiter) sont déclenchées depuis le frontend via `PATCH /rom/bytes` après lecture du ROM. Voir [Auto-mods](Auto-mods) et [Templates véhicule](Templates-vehicule).
+
+---
+
+## Rapport tune HTML → PDF
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/api/projects/:id/report.html` | Rapport HTML autonome listant les cartes modifiées vs `rom.original.bin` (métadonnées projet, deltas moyens colorés, échantillon raw, unités, description A2L). Ouvrable dans un onglet, imprimable en PDF via Ctrl-P du navigateur (`@media print` intégré). |
 
 ---
 

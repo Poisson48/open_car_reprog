@@ -1,12 +1,36 @@
 # open-car-reprog
 
-> **v0.4.3** — Logiciel open-source de reprogrammation ECU, comparable à WinOLS, entièrement basé web.
+> **v0.5.0** — Logiciel open-source de reprogrammation ECU, comparable à WinOLS, entièrement basé web.
 
 Première cible : **Bosch EDC16C34** (toute la famille PSA 1.6 HDi 75/90/110 cv DV6TED4 — Berlingo / Partner / 206 / 207 / 307 / 308 / 407 / C3 / C4, plus Ford Fiesta TDCi et Mazda 2/3 MZ-CD), 12 autres ECUs déclarés dans le catalog (EDC17, ME7, MED17…).
 
 Stack : **Node.js / Express** (back) + **Vanilla ES modules** (front, zéro build step) + **git** par projet pour toute la partie versionnement / comparaison / variantes.
 
 🧬 **[open_damos](https://github.com/Poisson48/open_car_reprog/wiki/Open-DAMOS)** — alternative libre (CC0) au damos Bosch propriétaire, **auto-relocalise les maps par empreinte d'axes** : Stage 1 marche sur n'importe quel firmware EDC16C34 PSA sans acheter de damos dédié (50-200 € habituellement).
+
+---
+
+## Nouveautés v0.5.0
+
+Une passe qualité complète pour faire de v0.5.0 la release v1.
+
+**Corrections**
+- ±% sur petites valeurs ne sont plus silencieusement muets (bump raw garanti)
+- 💾 Commit flush désormais automatiquement les modifs en mémoire (plus de Ctrl-S obligatoire)
+- ✨ suggest-msg : plus de message vide, plus d'inversion de signe sur cellules négatives
+- Champ Goto : validation stricte + feedback visuel (bordure rouge + status)
+
+**Nouvelles features**
+- **Toggle unités Nm↔lb·ft / °C↔°F** dans la toolbar (persistance par projet)
+- **📄 Rapport tune** HTML standalone → Ctrl-P = PDF (pas de puppeteer)
+- **⚡ Batch apply** — appliquer un template à N projets d'une flotte en un clic
+- **Vue 3D — mode delta réel** : hauteurs = (actuel − compareRom), couleurs divergentes
+- **Vue 3D — mode overlay** : surface actuelle remplie + référence en wireframe blanc
+- **Bouton « Δ vs parent »** — charge le commit parent de HEAD comme référence en 1 clic
+- **Auto-find** : filtre par nom A2L / adresse / dimensions + toggle « hors A2L »
+- **Feedback 0-cellules** : « N cellules modifiées, M à 0 ignorées » si zone de padding
+
+**Tests** — 36 Playwright green, walkthrough complet 0 findings.
 
 ---
 
@@ -20,11 +44,25 @@ Stack : **Node.js / Express** (back) + **Vanilla ES modules** (front, zéro buil
   du projet. Les ROMs dumpées avec un décalage mémoire (ex : flash mappée à `0x80000000`) peuvent
   afficher leurs adresses réelles dans l'hex editor et le "Go to" sans toucher au fichier.
 - **Éditeur de cartographies** — heatmap 2D, sélection cellule / plage / ligne / colonne, ajustements ±%
+  (le raw bouge toujours d'au moins 1 par cellule non-zéro, plus de clic `+5 %` silencieux sur les
+  petites valeurs). Un compteur s'affiche sous la toolbar quand des cellules à 0 sont ignorées dans
+  la sélection (zone de padding firmware mismatch typiquement).
+- **Toggle unités Nm↔lb·ft / °C↔°F** dans la toolbar — conversion uniquement à l'affichage,
+  la ROM stocke toujours dans l'unité A2L originale. Persistance par projet dans meta.
 - **Vue 3D** — bouton `🗻 3D` dans la toolbar de la carte : rendu surface colorée par altitude,
   rotation à la souris (az/el), bouton `⟳` pour réinitialiser la vue. Le tableau 2D reste éditable
-  à côté ; modifier une cellule rafraîchit immédiatement la surface 3D.
+  à côté ; modifier une cellule rafraîchit immédiatement la surface 3D. 4 modes cyclables :
+  **valeur · delta · split · overlay** (delta/split/overlay actifs dès qu'une compareRom est chargée).
 
   ![carto 3D](docs/screenshots/map-3d.png)
+
+  - **Mode delta** : hauteurs = (actuel − compareRom), couleurs divergentes rouge/vert.
+    Une surface plate à 0 = rien n'a changé dans ce quad.
+  - **Mode overlay** : surface actuelle remplie + référence en wireframe blanc dans la même box.
+  - Bouton **`Δ vs parent`** dans la toolbar charge le commit parent de HEAD comme référence en
+    1 clic et bascule en 3D delta automatiquement — sans devoir passer par le panel git.
+
+  ![3D delta](docs/screenshots/map-3d-delta.png)
 - **Record layouts variés supportés** — le lecteur respecte le `RECORD_LAYOUT` A2L (présence/absence
   des `NO_AXIS_PTS_X/Y` inline, dimensions fixes via `maxAxisPoints`, COM_AXIS partagés). Un badge
   `⚠ Layout` s'affiche si l'en-tête nx/ny lu en ROM est illisible (ROM d'une autre version firmware).
@@ -43,6 +81,10 @@ Utile quand :
 
 ~30 ms pour un scan complet de 2 Mo côté serveur. Clic sur un candidat → saut du hex editor + surlignage du bloc.
 
+Barre de recherche dans la modal pour filtrer 110+ candidats par nom A2L connu, substring
+d'adresse hex (`1c1`, `0x1c1`) ou dimensions (`16x16`) + toggle « hors A2L seulement » pour
+ne voir que les MAPs non documentées dans le damos projet.
+
 ![map finder](docs/screenshots/map-finder.png)
 
 ### Modifications automatiques (EDC16C34)
@@ -51,6 +93,12 @@ Utile quand :
   au choix du preset. Extensible : nouvelle entrée dans `src/vehicle-templates.js`.
 
   ![vehicle templates](docs/screenshots/vehicle-templates.png)
+
+- **⚡ Batch apply** — bouton dans la home qui ouvre une modal pour appliquer un template à
+  plusieurs projets d'une flotte en une passe (5 Berlingos d'une même compagnie → Stage 1 en 1 clic).
+  Checkboxes pour cibler, message de commit partagé, erreurs isolées par projet + récap.
+
+  ![batch apply](docs/screenshots/batch-apply.png)
 
 - **Stage 1** — 5 cartes (accélérateur, couple, rail pressure, limiteur couple) avec % ajustable par carte
 - **Pop & Bang** — seuil RPM sélectionnable (snappé aux points d'axe map Bosch) + quantité d'injection
@@ -182,6 +230,14 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
   compare dans l'éditeur. Les slots sont stockés en local par projet et
   restent hors git (ils ne polluent pas l'historique de tune).
 
+- **📄 Rapport tune** — bouton dans la toolbar qui ouvre un rapport HTML standalone
+  (CSS inline, `@media print`) listant les cartes modifiées vs la ROM originale avec
+  métadonnées projet, deltas moyens colorés (vert/rouge), échantillon raw, unités et
+  description A2L. Ctrl-P → « Enregistrer en PDF » dans le navigateur. Pas de puppeteer,
+  pas de dépendance serveur supplémentaire.
+
+  ![rapport tune](docs/screenshots/report-pdf.png)
+
 ---
 
 ## Installation
@@ -308,6 +364,8 @@ tests/
 | GET | `/api/ecu/:ecu/parameters/:name` | Param détaillé |
 | POST | `/api/projects/:id/stage1` | Stage 1 auto (cascade A2L custom → A2L catalog → open_damos fingerprint → catalog) |
 | POST | `/api/projects/:id/popbang` | Pop & Bang |
+| GET | `/api/projects/:id/report.html` | **Rapport HTML** des cartes modifiées vs ROM originale (imprimable PDF) |
+| POST | `/api/templates/:tid/batch-apply` | **Batch apply** d'un template à N projets d'une flotte |
 
 ---
 
@@ -327,16 +385,29 @@ A+4+nx*2+ny*2    : données [nx × ny × SWORD]
 
 ## Tests automatisés
 
+36 tests Playwright + le smoke test `walkthrough.test.js` qui clique chaque bouton de
+chaque composant.
+
 ```bash
-node server.js &            # ou PORT=3001 pour éviter les conflits
-node tests/branch-switcher.test.js
-node tests/diff-map-level.test.js
-node tests/auto-commit-msg.test.js
-node tests/git-graph.test.js
-node tests/map-compare.test.js
+PORT=3001 node server.js &
+# Ou pour le walkthrough end-to-end :
+PORT=3002 node server.js &
+node tests/walkthrough.test.js       # 15 phases, 0 findings attendus
+# Tests unitaires par feature :
+node tests/pct-bump.test.js          # ±% bump raw garanti
+node tests/commit-autoflush.test.js  # 💾 flush auto
+node tests/suggest-msg.test.js       # ✨ signe et contenu
+node tests/goto-validation.test.js   # hex input + bornes
+node tests/map-finder-filter.test.js # filtre auto-find
+node tests/units-toggle.test.js      # Nm ↔ lb·ft
+node tests/report-pdf.test.js        # rapport HTML + PDF Playwright
+node tests/batch-apply.test.js       # template × N projets
+node tests/map-3d-delta.test.js      # mode delta 3D
+node tests/map-3d-overlay.test.js    # mode overlay wireframe
 ```
 
 Chaque test Playwright génère des screenshots dans `tests/screenshots/` (gitignorés).
+Les screenshots référencés dans le README/wiki sont copiés dans `docs/screenshots/`.
 
 ---
 

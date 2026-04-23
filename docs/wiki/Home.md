@@ -19,18 +19,21 @@
 - **[Tutoriel complet](Tutoriel)** — workflow type : import ROM → Stage 1 → commit → variante → flash
 
 ### Éditeurs
-- **[Éditeur hex](Editeur-Hex)** — canvas 2 Mo avec virtual scroll, navigation, édition nibble, base d'adresses configurable
-- **[Éditeur de cartographies](Editeur-de-maps)** — heatmap 2D, vue 3D, slice viewer, sélection, ±%, lisser/égaliser/rampe, copy/paste, notes, compare view
+- **[Éditeur hex](Editeur-Hex)** — canvas 2 Mo avec virtual scroll, navigation, édition nibble, base d'adresses configurable, champ « Aller à » avec validation hex stricte
+- **[Éditeur de cartographies](Editeur-de-maps)** — heatmap 2D, vue 3D (valeur / **delta** / split / **overlay wireframe**), slice viewer, sélection, ±% (bump raw garanti), lisser/égaliser/rampe, copy/paste, notes, compare view, **toggle unités Nm↔lb·ft / °C↔°F**
 - **[Paramètres A2L](Parametres-A2L)** — 6638 caractéristiques EDC16C34 parsées, recherche, filtres, A2L perso par projet
 
 ### Modifications
 - **[Auto-mods](Auto-mods)** — Stage 1, Pop & Bang, DPF/FAP OFF, EGR OFF + **6 recettes auto-tune one-click** (Speed Limiter OFF, Rev Limit raise, Torque Limiter +30%, Rail Pressure +15%, Smoke Limiter -5%, Full Dépollution)
-- **[Templates véhicule](Templates-vehicule)** — presets one-click par famille de voiture (Stage 1 Safe / Sport / Dépollution)
-- **[Map-Finder](Map-Finder)** — détection heuristique auto de MAPs (ROMs sans A2L)
+- **[Templates véhicule](Templates-vehicule)** — presets one-click par famille de voiture (Stage 1 Safe / Sport / Dépollution), **+ batch apply à N projets d'une flotte**
+- **[Map-Finder](Map-Finder)** — détection heuristique auto de MAPs (ROMs sans A2L), **filtre par nom / adresse / dimensions + toggle « hors A2L »**
 - **[open_damos](Open-DAMOS)** 🧬 — damos libre (CC0) qui relocalise les maps par empreinte d'axes. Stage 1 marche sur n'importe quel firmware EDC16C34 PSA sans acheter de damos Bosch. Badge damos-match 🟢/🟠/🔴 dans la toolbar prévient si ton damos ne matche pas. Export A2L standard pour WinOLS.
 
 ### Git workflow
-- **[Workflow git](Workflow-git)** — branches, graph, diff map-level, auto-commit messages, compare view, compare vs fichier, **compare 2 commits/branches arbitraires**, **split view 2D/3D** (2 tableaux + 2 heatmaps + 2 surfaces côte à côte), **liste cliquable des modifs** (flash doré sur la cellule), restore, undo/redo
+- **[Workflow git](Workflow-git)** — branches (création / switch / **suppression** 🗑), graph, diff map-level, auto-commit messages (via ✨ **auto-flush** des modifs en mémoire), compare view, compare vs fichier, **compare 2 commits/branches arbitraires**, **split view 2D/3D**, **liste cliquable des modifs** (flash doré sur la cellule), bouton **« Δ vs parent »** un clic pour comparer avec le commit parent de HEAD, restore, undo/redo
+
+### Livrables
+- **📄 Rapport tune** — endpoint `/report.html` : rapport autonome des cartes modifiées vs ROM originale, imprimable en PDF depuis le navigateur (Ctrl-P)
 
 ### Référence
 - **[ECUs supportés](ECUs-supportes)** — catalog, comment ajouter un nouvel ECU
@@ -60,6 +63,10 @@
 | Templates véhicule one-click | ⚠ | ✅ |
 | Multi-ROM slots (stock/tune/ref) par projet | ⚠ | ✅ |
 | Undo/redo ROM-level (Ctrl-Z / Ctrl-Shift-Z) | ✅ | ✅ |
+| **3D — mode delta vs ref + overlay wireframe** | ⚠ limité | ✅ |
+| **Toggle unités Nm↔lb·ft / °C↔°F** | ⚠ | ✅ |
+| **Rapport PDF tune** client (cartes modifiées + deltas) | ✅ (module payant) | ✅ (HTML → Ctrl-P) |
+| **Batch apply** template à N ROMs d'une flotte | ⚠ | ✅ |
 | Prix | ~400-2000 € | **gratuit, open-source** |
 
 Le workflow est orienté **"git-first"** : chaque projet est un repo git dédié, ce qui donne gratuitement branches, historique, diff, restore, merge — tout ce que les snapshots WinOLS font plus mal.

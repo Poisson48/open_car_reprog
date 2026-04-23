@@ -26,6 +26,29 @@ Pour EDC16C34 (PSA 1.6 HDi 110 cv — 206, 307, 308, Partner…) :
 
 L'application est **atomique côté serveur** : le endpoint `POST /api/projects/:id/apply-template/:tid` charge le ROM, patche Stage 1, patche popbang, patche auto-mods, puis écrit le tout en un seul `fs.writeFile`. Si une étape échoue, aucun octet n'est modifié.
 
+## Batch apply — plusieurs projets d'un coup (v0.5.0+)
+
+Home view → bouton **`⚡ Batch apply…`** à côté de « + Nouveau projet ». La modal permet de
+choisir un template et de cocher tous les projets cibles :
+
+![batch apply](../screenshots/batch-apply.png)
+
+- Dropdown des templates (filtrés par compatibilité ECU quand tu changes de sélection)
+- Checkboxes — tous les projets qui ont une ROM et dont l'ECU matche sont cochés par défaut
+- Boutons `Tout cocher` / `Rien cocher` pour ajuster rapidement
+- Champ message de commit optionnel (défaut : `"batch: <nom du template>"`), partagé sur tous
+  les projets pour retrouver facilement l'opération dans chaque log git
+- Click **`Appliquer`** → `POST /api/templates/:tid/batch-apply` avec `{ projectIds, commitMessage }`
+
+Chaque projet est traité indépendamment : une erreur sur l'un n'interrompt pas les autres.
+La modal affiche un récap ligne-par-ligne :
+
+- ✓ vert : nb maps Stage 1, nb auto-mods, hash du commit créé
+- ✗ rouge : message d'erreur (ECU incompatible, pas de ROM…)
+
+Cas d'usage typique : une compagnie qui gère 5 Berlingos et veut pousser un Stage 1 Safe sur
+toute la flotte en 1 clic.
+
 ## Ajouter un template
 
 Éditer `src/vehicle-templates.js` :

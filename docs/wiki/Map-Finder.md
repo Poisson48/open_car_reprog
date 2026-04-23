@@ -15,7 +15,23 @@ La modal liste chaque candidat avec :
 - **Range data** (min → max raw)
 - **Nom A2L connu** si l'adresse correspond à une caractéristique de l'A2L du projet (cross-référence automatique)
 
-Click sur un candidat → l'hex editor saute à l'adresse et met la région en surbrillance.
+Click sur **`Voir →`** sur un candidat → l'hex editor saute à l'adresse et met la région en surbrillance.
+
+### Filtrer la liste (v0.5.0+)
+
+Sur un Bosch plein, le scan renvoie souvent 100+ candidats. La barre au-dessus de la liste permet
+de réduire :
+
+- **Input de filtre** — matche par :
+  - *nom A2L connu* (ex: `AccPed`)
+  - *substring d'adresse hex* (ex: `1c1`, `0x1c1`)
+  - *dimensions* (ex: `16x16`, `16×16`)
+- **Toggle « hors A2L seulement »** — ne montre que les candidats qui ne correspondent à
+  **aucune** caractéristique de l'A2L projet. C'est là qu'un tuner trouve les vraies MAPs
+  non documentées à explorer.
+- Compteur `N/total` à droite pour voir l'impact du filtre.
+
+![map-finder](../screenshots/map-finder-filter.png)
 
 ## Comment ça marche
 

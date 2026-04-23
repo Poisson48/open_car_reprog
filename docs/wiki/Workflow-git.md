@@ -122,13 +122,22 @@ Bouton **✨** à côté du champ message OU focus sur un champ vide → le serv
 
 | Situation | Exemple de message |
 |-----------|--------------------|
-| 1 carte modifiée avec fit exact | `ACCD_uSRCMin_C +360%` |
+| 1 carte modifiée avec fit exact | `ACCD_uSRCMin_C +10%` |
 | Stage 1 pattern (≥3/5 cartes canoniques) | `Stage 1 (5/5 cartes)` |
 | 2-4 cartes diverses | `AirCtl_nOvrRun_C, AirCtl_qOvrRun_C` |
 | Beaucoup de changements | `5 cartes : ACCD_DebNplDef_C, ACCD_DebNplOK_C, …` |
 | Rien de modifié | Bouton flash `rien à committer` |
 
 Tu peux éditer le message avant d'appuyer `💾 Commit modifications`.
+
+> **Note depuis v0.5.0** — ✨ déclenche d'abord un flush automatique des modifs en mémoire
+> avant d'appeler le diff. Avant cette version, cliquer ✨ juste après avoir fait `+10 %` sur
+> 160 cellules pouvait renvoyer « rien à committer » parce que l'endpoint lit la ROM sur disque.
+> Le bouton 💾 Commit a le même flush automatique maintenant — plus besoin de `Ctrl+S` avant.
+>
+> Bonus : le % affiché est calculé sur la **moyenne** de toutes les cellules modifiées (pas un
+> seul échantillon). Plus d'inversion de signe sur les cellules négatives (ex: `+10 %` sur une
+> cellule phys=−1 affiche maintenant bien `+10 %` et non `−10 %`).
 
 ---
 
@@ -170,6 +179,23 @@ Click **`Comparer →`** → liste map-level des cartes qui diffèrent, triée p
 Cas d'usage : comparer 2 branches de tuning (`stage1` vs `stage2`), comparer un commit d'il y a 3 jours avec HEAD, comparer deux versions d'un même tune juste avant de décider laquelle flasher.
 
 Endpoint : `GET /api/projects/:id/git/diff-maps-between/:refA/:refB` — accepte hash complet, hash court, branch, tag, `HEAD~N`, etc.
+
+---
+
+## Δ vs commit parent — 1 clic depuis la toolbar map (v0.5.0+)
+
+Quand tu as ouvert une carte et que tu viens de faire un commit, le bouton **`Δ vs parent`**
+dans la toolbar de l'éditeur charge automatiquement le **commit parent de HEAD** comme référence
+de comparaison et bascule immédiatement la vue en **3D mode delta** (surface colorée par la
+différence, hauteur = delta).
+
+Avantages vs passer par le panel git :
+- Évite de scroller le log et de cliquer le bon commit
+- Bascule 3D automatiquement → impact visuel immédiat (on voit où la calibration a bougé)
+- Revient en mode normal en appuyant ✕ dans la bannière compare
+
+Cas d'usage : après chaque commit, cliquer Δ vs parent pour valider visuellement qu'on a
+bien touché uniquement les zones qu'on voulait.
 
 ---
 

@@ -12,7 +12,13 @@ Quand tu cliques un paramètre A2L dans la sidebar gauche, l'éditeur de maps s'
 ## Toolbar
 
 - **Nom + description** de la carte
-- Métadonnées : `MAP · SWORD · Nm · 0x1C1448` (type · dataType · unité · adresse)
+- Métadonnées : `MAP · SWORD · Nm · 0x1C1448` (type · dataType · unité · adresse). L'unité affichée
+  suit le toggle global Nm↔lb·ft / °C↔°F (bouton **`Nm · °C`** dans la toolbar principale) : si
+  tu bascules en `lb·ft · °F`, ce header et les valeurs des cellules se convertissent à l'affichage,
+  mais la ROM reste stockée dans l'unité A2L originale.
+- Bouton **`🗻 3D`** / **`▦ 2D`** pour basculer la vue, bouton **`⟳`** pour remettre la rotation à zéro
+- Bouton **`Δ vs parent`** (visible sans compareRom chargée) — charge en 1 clic le commit parent de
+  HEAD comme référence et bascule en 3D mode delta automatiquement
 - **✕** ferme l'éditeur
 
 ## Table éditable
@@ -31,7 +37,12 @@ Les cellules affichent les **valeurs physiques** (converties via les coefficient
 
 Une barre d'édition apparaît quand au moins une cellule est sélectionnée :
 
-- Boutons rapides : `+1%` / `-1%` / `+5%` / `-5%` / `+10%` / `-10%`
+- Boutons rapides : `+1%` / `-1%` / `+5%` / `-5%` / `+10%` / `-10%`. Le **raw bouge toujours d'au
+  moins 1 unité par cellule non-zéro** : un `+5%` sur une cellule à phys=1.0 (raw=10) donne
+  raw=11 si l'arrondi naturel y mène, sinon il est forcé. Les cellules à 0 restent à 0 (l'intention
+  du tuner n'est pas d'activer des zones éteintes). Si toutes les cellules sélectionnées sont à
+  0 (padding firmware mismatch), un message apparaît sous la barre : *« ⚠ Toutes les cellules
+  sélectionnées sont à 0 — aucun effet »*. Si seule une partie l'est : *« N modifiées, M à 0 ignorées »*.
 - Input `Valeur…` + bouton `Appliquer` → valeur absolue
 - `Tout sélectionner` / `Désélectionner`
 - **`Copier` / `Coller`** (ou `Ctrl+C` / `Ctrl+V`) — copie le bloc de cellules sélectionnées et le colle à partir de la cellule active. Utile pour dupliquer une zone « safe » vers une autre région de la même map.
@@ -61,15 +72,42 @@ La pile est vidée quand tu fais un commit git (puisque git prend le relais comm
 
 ![map-3d](images/13-map-3d.png)
 
-Le bouton **`🎲 3D`** bascule la heatmap en **surface 3D** :
+Le bouton **`🗻 3D`** bascule la heatmap en **surface 3D** :
 - Les valeurs deviennent une élévation Z
 - Palette identique (bleu bas → rouge haut)
 - **Souris** = rotation interactive (drag = yaw + pitch)
-- **Molette** = zoom
+- **Bouton `⟳`** = reset rotation
 
 ![map-3d-rotated](images/14-map-3d-rotated.png)
 
-Utile pour visualiser d'un coup d'œil les creux (EGR fade-out, clamp de couple) et les pics (sur-injection). Repasser en 2D avec le même bouton (`📊 2D`).
+Utile pour visualiser d'un coup d'œil les creux (EGR fade-out, clamp de couple) et les pics (sur-injection). Repasser en 2D avec le même bouton (`▦ 2D`).
+
+### 4 modes 3D (cyclables dès qu'une compareRom est chargée)
+
+Click répété sur le bouton de mode → cycle **valeur → delta → split → overlay → valeur** :
+
+- **🎨 Valeur** (défaut) — hauteur + couleur = valeur actuelle absolue (comme avant).
+- **Δ Delta** — hauteurs = `(actuel − compareRom)`, couleurs divergentes
+  (rouge = diminution, gris = inchangé, vert = augmentation). Une surface
+  plate à zéro signifie qu'il n'y a rien changé dans ce quad. Idéal pour voir
+  d'un coup d'œil quelle zone a été touchée par un tune.
+
+  ![3D delta](../screenshots/map-3d-delta.png)
+
+- **⇄ Split** — 2 surfaces côte à côte (compareRom gauche, actuel droit) avec
+  rotations synchronisées et échelle Z partagée pour comparer les formes.
+- **▚ Overlay** — les 2 surfaces dans la même box 3D : l'actuelle remplie en
+  heatmap, la référence en **wireframe blanc**. Là où le wireframe « décolle »
+  de la surface colorée, c'est que la calibration a bougé à cet endroit.
+
+  ![3D overlay](../screenshots/map-3d-overlay.png)
+
+### Charger une compareRom sans passer par le panel git
+
+Le bouton **`Δ vs parent`** dans la toolbar (visible uniquement quand aucune
+compareRom n'est encore chargée) charge le commit parent de HEAD comme
+référence en 1 clic et bascule immédiatement en 3D mode delta. Pratique
+juste après un commit pour voir ce qu'on vient de changer.
 
 ## Slice viewer
 
@@ -120,16 +158,30 @@ Quand tu ouvres une carte depuis la liste du diff git, l'éditeur entre en **mod
 
 Voir [Workflow git — Compare view](Workflow-git#compare-view).
 
+## Unités d'affichage — Nm ↔ lb·ft / °C ↔ °F
+
+Bouton **`Nm · °C`** dans la toolbar principale du projet. Click → bascule en
+`lb·ft · °F` et tout l'affichage des cellules torque/temp se convertit
+instantanément. Les écritures sur ROM continuent en unité A2L originale (ex :
+taper `100` en mode lb·ft stocke `135.58 Nm`). La préférence est persistée par
+projet dans `meta.json` (champ `units: { torque, temp }`).
+
+Utilisé notamment pour travailler sur des tunes avec des unités imposées par
+le client (compétition US, prep cliente custom).
+
 ## Raccourcis
 
 | Action | Méthode |
 |--------|---------|
-| Entrer une valeur | Double-click cellule, taper, Enter |
+| Entrer une valeur | Double-click cellule, taper, Enter (la valeur est interprétée dans l'unité courante) |
 | Sélection rectangle | Click-drag |
-| Ajuster sélection | `+5%`, `-5%`, etc. dans la barre |
+| Ajuster sélection | `+5%`, `-5%`, etc. dans la barre (raw bump garanti) |
 | Copier / coller sélection | `Ctrl+C` / `Ctrl+V` |
 | Undo / redo modifs ROM | `Ctrl+Z` / `Ctrl+Shift+Z` |
-| Bascule 2D ↔ 3D | Bouton **`🎲 3D`** / **`📊 2D`** dans la toolbar heatmap |
+| Bascule 2D ↔ 3D | Bouton **`🗻 3D`** / **`▦ 2D`** dans la toolbar heatmap |
+| Cycle mode 3D (value / delta / split / overlay) | Bouton mode de la toolbar (visible si compareRom chargée) |
+| Δ vs commit parent | Bouton `Δ vs parent` dans la toolbar |
+| Toggle unités (Nm / lb·ft, °C / °F) | Bouton **`Nm · °C`** dans la toolbar du projet |
 | Slice viewer | Click sur un header de ligne ou colonne |
 | Notes map | Icône 📝 dans la toolbar de l'éditeur |
 | Fermer | **✕** (toolbar) |

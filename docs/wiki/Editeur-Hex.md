@@ -23,7 +23,11 @@ De gauche à droite :
 ## Navigation
 
 - **Scroll souris** : molette (fonctionne même sur les zones hex/ascii grâce au forwarding des events `wheel`)
-- **Champ "Aller à"** (toolbar) : saisir une adresse hex (ex `1E9DD4` ou `0x1E9DD4`) puis Entrée ou clic **Go**
+- **Champ "Aller à"** (toolbar) : saisir une adresse hex (ex `1E9DD4` ou `0x1E9DD4`) puis Entrée ou clic **Go**.
+  Validation stricte depuis v0.5.0 : une saisie non-hex (`zzz`, `123g`) ou hors ROM (`FFFFFFFF` sur un
+  dump 2 Mo) est rejetée avec une bordure rouge sur l'input + un message dans la status bar
+  (*"Adresse invalide"* ou *"Adresse 0x… hors ROM (taille : 2097152 octets)"*). L'erreur disparaît
+  dès que tu reprends la saisie.
 - **Click sur un paramètre A2L** (sidebar gauche) : l'hex editor saute à l'adresse du paramètre
 
 ## Édition
