@@ -9,6 +9,7 @@ const A2lParser = require('./src/a2l-parser');
 const WinolsParser = require('./src/winols-parser');
 const { applyPctToMap, readValue, writeValue } = require('./src/rom-patcher');
 const { getEcu, listEcus } = require('./src/ecu-catalog');
+const { loadOpenDamos, relocate: relocateOpenDamos } = require('./src/open-damos');
 const { listTemplates, getTemplate, listTemplatesForEcu } = require('./src/vehicle-templates');
 const { mapsChanged } = require('./src/map-differ');
 const { findMaps } = require('./src/map-finder');
@@ -578,27 +579,68 @@ app.post('/api/projects/:id/stage1', async (req, res) => {
     const rom = Buffer.from(fs.readFileSync(romPath));
     const u8 = new Uint8Array(rom.buffer, rom.byteOffset, rom.byteLength);
 
-    // Résolution des adresses : l'A2L du projet (custom uploadé OU catalog
-    // ECU) a priorité sur les adresses hardcodées du ecu-catalog. Ça rend
-    // Stage 1 indépendant du firmware spécifique dès que l'utilisateur
-    // uploade un damos qui matche sa ROM.
+    // Résolution des adresses par cascade :
+    //   1. A2L custom (uploadé par l'utilisateur pour son firmware)
+    //   2. A2L catalog (damos.a2l de référence — ne marche que si la ROM
+    //      a le même firmware que ori.BIN)
+    //   3. open_damos relocation (scan par empreinte d'axes — marche sur
+    //      n'importe quel firmware EDC16C34 PSA sans damos dédié)
+    //   4. Hardcoded catalog addresses (dernier recours)
+    // Chaque résultat précise sa source via addressSource pour que le
+    // frontend puisse expliquer ce qui s'est passé.
     const a2l = await getA2lForProject(proj);
     const a2lByName = new Map();
     if (a2l?.characteristics) {
       for (const c of a2l.characteristics) a2lByName.set(c.name, c);
     }
 
+    // Précalcul open_damos : scan fingerprint une seule fois, réutilisable.
+    let openDamosByName = new Map();
+    let openDamosInfo = null;
+    try {
+      const od = loadOpenDamos(proj.ecu);
+      if (od) {
+        const relocated = relocateOpenDamos(od, rom);
+        openDamosInfo = { version: od.version, entries: relocated.length };
+        for (const r of relocated) openDamosByName.set(r.name, r);
+      }
+    } catch (e) {
+      // non-fatal, on continue sans
+    }
+
     const result = [];
     for (const m of maps) {
       const pct = pcts[m.name] !== undefined ? Number(pcts[m.name]) : m.defaultPct;
       if (pct === 0) continue;
+
+      // Cascade A2L → open_damos → catalog
       const a2lEntry = a2lByName.get(m.name);
-      const addr = a2lEntry?.address ?? m.address;
-      const source = a2lEntry ? 'a2l' : 'catalog';
+      const odEntry = openDamosByName.get(m.name);
+
+      let addr, source;
+      if (a2lEntry?.address !== undefined) {
+        addr = a2lEntry.address;
+        source = 'a2l';
+      } else if (odEntry && odEntry.addressSource === 'fingerprint') {
+        addr = odEntry.address;
+        source = 'open_damos:fingerprint';
+      } else {
+        addr = m.address;
+        source = 'catalog';
+      }
+
       try {
         const changed = applyPctToMap(u8, addr, pct);
         result.push({ map: m.name, pct, address: addr, addressSource: source, changed: changed.length });
       } catch (e) {
+        // Si A2L a échoué et qu'open_damos a un match fingerprint, retry
+        if (source === 'a2l' && odEntry && odEntry.addressSource === 'fingerprint') {
+          try {
+            const changed = applyPctToMap(u8, odEntry.address, pct);
+            result.push({ map: m.name, pct, address: odEntry.address, addressSource: 'open_damos:fingerprint (a2l-fallback)', changed: changed.length });
+            continue;
+          } catch (e2) { /* fall through */ }
+        }
         result.push({ map: m.name, pct, address: addr, addressSource: source, error: e.message });
       }
     }

@@ -1,0 +1,191 @@
+{
+  "$schema": "./open_damos.schema.json",
+  "ecu": "edc16c34",
+  "name": "open_damos — EDC16C34 Bosch PSA",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Damos libre et gratuit pour Bosch EDC16C34 PSA (DV6TED4, 1.6 HDi 75/90/110 cv : Berlingo, Partner, 206, 207, 307, 308, 407, C3, C4, Fiesta TDCi, Mazda 2/3 MZ-CD). Couvre les entrées essentielles au tuning (Stage 1, popbang, EGR OFF). Chaque entrée inclut une empreinte d'axes permettant la relocalisation automatique sur n'importe quel firmware de la famille, sans besoin du damos Bosch propriétaire.",
+  "baseline": {
+    "source": "ressources/edc16c34/ori.BIN",
+    "damos": "ressources/edc16c34/damos.a2l",
+    "note": "Adresses et empreintes prélevées sur ori.BIN (match 100 % damos.a2l). Pour les autres firmwares (ex. SW 1037383736 Berlingo II 1.6 HDi 75), la relocalisation par empreinte retrouve les mêmes maps à des offsets différents."
+  },
+  "recordLayouts": {
+    "Kf_Xs16_Ys16_Ws16": {
+      "type": "MAP",
+      "headerBytes": 4,
+      "headerType": "UWORD_BE",
+      "axisDataType": "SWORD_BE",
+      "dataType": "SWORD_BE"
+    },
+    "Kl_Xs16_Ws16": {
+      "type": "CURVE",
+      "headerBytes": 2,
+      "headerType": "UWORD_BE",
+      "axisDataType": "SWORD_BE",
+      "dataType": "SWORD_BE"
+    },
+    "Kw_Ws16": {
+      "type": "VALUE",
+      "dataType": "SWORD_BE"
+    }
+  },
+  "characteristics": [
+    {
+      "name": "AccPed_trqEngHiGear_MAP",
+      "category": "stage1",
+      "description": "Driver's wish — couple moteur demandé par la pédale d'accélérateur sur les rapports hauts (4e/5e).",
+      "type": "MAP",
+      "recordLayout": "Kf_Xs16_Ys16_Ws16",
+      "defaultAddress": "0x1C1448",
+      "dims": { "nx": 16, "ny": 10 },
+      "axes": [
+        { "inputQuantity": "Eng_nAvrg",        "unit": "rpm", "factor": 1,             "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [400, 650, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3500, 4000, 5000, 5300] },
+        { "inputQuantity": "AccPed_rChkdVal",  "unit": "%",   "factor": 0.01220703125, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [90, 1229, 2212, 2849, 3195, 3932, 4751, 5734, 6554, 8192] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.1, "offset": 0, "unit": "Nm" },
+      "stage1": { "defaultPct": 15, "safePct": 10, "sportPct": 18 }
+    },
+    {
+      "name": "AccPed_trqEngLoGear_MAP",
+      "category": "stage1",
+      "description": "Driver's wish — couple moteur demandé par la pédale d'accélérateur sur les rapports bas (1re/2e/3e).",
+      "type": "MAP",
+      "recordLayout": "Kf_Xs16_Ys16_Ws16",
+      "defaultAddress": "0x1C168C",
+      "dims": { "nx": 16, "ny": 10 },
+      "axes": [
+        { "inputQuantity": "Eng_nAvrg",        "unit": "rpm", "factor": 1,             "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [400, 650, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3500, 4000, 5000, 5300] },
+        { "inputQuantity": "AccPed_rChkdVal",  "unit": "%",   "factor": 0.01220703125, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [90, 1229, 2212, 2867, 3277, 4096, 4915, 5734, 6554, 8192] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.1, "offset": 0, "unit": "Nm" },
+      "stage1": { "defaultPct": 15, "safePct": 10, "sportPct": 18 }
+    },
+    {
+      "name": "FMTC_trq2qBas_MAP",
+      "category": "stage1",
+      "description": "Conversion couple → quantité carburant injectée (base). Pivot central du Stage 1 : plus de couple demandé = plus d'injection.",
+      "type": "MAP",
+      "recordLayout": "Kf_Xs16_Ys16_Ws16",
+      "defaultAddress": "0x1C9AAA",
+      "dims": { "nx": 16, "ny": 16 },
+      "axes": [
+        { "inputQuantity": "Eng_nAvrg",       "unit": "rpm", "factor": 1,   "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3500, 4000, 4500, 5000] },
+        { "inputQuantity": "CoEng_trqInrSet", "unit": "Nm",  "factor": 0.1, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [0, 100, 200, 350, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 4500] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.01, "offset": 0, "unit": "mg/cyc" },
+      "stage1": { "defaultPct": 12, "safePct": 8, "sportPct": 15 }
+    },
+    {
+      "name": "Rail_pSetPointBase_MAP",
+      "category": "stage1",
+      "description": "Consigne de pression rail (common rail) de base, fonction du régime et de la quantité injectée. Faut la monter pour injecter plus de carburant sans perte de combustion.",
+      "type": "MAP",
+      "recordLayout": "Kf_Xs16_Ys16_Ws16",
+      "defaultAddress": "0x1E726C",
+      "dims": { "nx": 16, "ny": 16 },
+      "axes": [
+        { "inputQuantity": "Eng_nAvrg",   "unit": "rpm",    "factor": 1,    "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [600, 750, 850, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3250, 3500, 4000, 4500] },
+        { "inputQuantity": "InjCtl_qCurr","unit": "mg/cyc", "factor": 0.01, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [0, 170, 340, 680, 850, 1020, 1190, 1360, 1550, 1840, 2280, 3000, 3300, 3500, 3700, 4000] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 100, "offset": 0, "unit": "hPa" },
+      "stage1": { "defaultPct": 10, "safePct": 5, "sportPct": 12 }
+    },
+    {
+      "name": "EngPrt_trqAPSLim_MAP",
+      "category": "stage1",
+      "description": "Limite de couple pour protection moteur (turbocharger protection). Sans la relever, elle clamp ton gain Stage 1 → map la plus importante à toucher.",
+      "type": "MAP",
+      "recordLayout": "Kf_Xs16_Ys16_Ws16",
+      "defaultAddress": "0x1C8838",
+      "dims": { "nx": 8, "ny": 12 },
+      "axes": [
+        { "inputQuantity": "APSCD_pVal", "unit": "hPa", "factor": 1, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [700, 800, 825, 850, 875, 900, 950, 975] },
+        { "inputQuantity": "Eng_nAvrg", "unit": "rpm", "factor": 1, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [800, 1250, 1750, 2000, 2250, 2500, 2750, 3000, 3500, 4000, 4500, 5000] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.1, "offset": 0, "unit": "Nm" },
+      "stage1": { "defaultPct": 25, "safePct": 20, "sportPct": 30 }
+    },
+    {
+      "name": "Rail_pSetPointMax_MAP",
+      "category": "safety",
+      "description": "Limiteur max de pression rail (fonction régime + qty injectée). Relever uniquement si tu pousses le Stage 2+ et que Rail_pSetPointBase atteint ce plafond.",
+      "type": "MAP",
+      "recordLayout": "Kf_Xs16_Ys16_Ws16",
+      "defaultAddress": "0x1E75E2",
+      "dims": { "nx": 12, "ny": 8 },
+      "axes": [
+        { "inputQuantity": "Eng_nAvrg",   "unit": "rpm",    "factor": 1,    "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [100, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 4600, 5000] },
+        { "inputQuantity": "InjCtl_qCurr","unit": "mg/cyc", "factor": 0.01, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [0, 100, 200, 500, 1000, 2000, 3500, 5000] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 100, "offset": 0, "unit": "hPa" }
+    },
+    {
+      "name": "EngPrt_qLim_CUR",
+      "category": "safety",
+      "description": "Limiteur de quantité carburant (protection moteur) en fonction du régime. Courbe plafond à relever pour ne pas clamper un gros Stage 1/2.",
+      "type": "CURVE",
+      "recordLayout": "Kl_Xs16_Ws16",
+      "defaultAddress": "0x1C87C6",
+      "dims": { "nx": 16 },
+      "axes": [
+        { "inputQuantity": "Eng_nAvrg", "unit": "rpm", "factor": 1, "offset": 0, "dataType": "SWORD_BE",
+          "fingerprint": [0, 250, 500, 750, 1000, 1250, 1500, 1750, 2250, 2500, 2750, 3000, 3250, 3500, 5000, 5200] }
+      ],
+      "data": { "dataType": "SWORD_BE", "factor": 0.01, "offset": 0, "unit": "mg/hub" }
+    },
+    {
+      "name": "AirCtl_nOvrRun_C",
+      "category": "popbang",
+      "description": "Seuil de régime pour la condition overrun (levée de pied). Baisser → pop&bang s'active plus souvent. Attention à ne pas descendre sous 1500 rpm (turbo).",
+      "type": "VALUE",
+      "recordLayout": "Kw_Ws16",
+      "defaultAddress": "0x1C4046",
+      "stockRawValue": 1000,
+      "stockPhysValue": 1000,
+      "data": { "dataType": "SWORD_BE", "factor": 1, "offset": 0, "unit": "rpm" },
+      "relocation": {
+        "method": "nearby-anchor",
+        "anchorMap": "AccPed_trqEngLoGear_MAP",
+        "note": "VALUE scalaires impossibles à fingerprinter seuls — s'appuie sur proximité d'une MAP connue (même région mémoire chez Bosch)."
+      }
+    },
+    {
+      "name": "AirCtl_qOvrRun_C",
+      "category": "popbang",
+      "description": "Quantité de carburant injectée pendant l'overrun (pop&bang). Valeur stock = 50 (0.5 mg/hub), à monter à 500-2000 pour pétarades.",
+      "type": "VALUE",
+      "recordLayout": "Kw_Ws16",
+      "defaultAddress": "0x1C40B4",
+      "stockRawValue": 50,
+      "stockPhysValue": 0.5,
+      "data": { "dataType": "SWORD_BE", "factor": 0.01, "offset": 0, "unit": "mg/hub" },
+      "relocation": { "method": "nearby-anchor", "anchorMap": "AccPed_trqEngLoGear_MAP" }
+    },
+    {
+      "name": "AirCtl_nMin_C",
+      "category": "egr",
+      "description": "Seuil de régime de coupure EGR. Le relever à 6000-8000 rpm (valeur raw 0x1770 ou 0x1F40) désactive l'EGR sur toute la plage d'utilisation normale.",
+      "type": "VALUE",
+      "recordLayout": "Kw_Ws16",
+      "defaultAddress": "0x1C41B8",
+      "stockRawValue": 700,
+      "stockPhysValue": 700,
+      "data": { "dataType": "SWORD_BE", "factor": 1, "offset": 0, "unit": "rpm" },
+      "egrOff": { "recommendedRawValue": 8000, "note": "8000 rpm = EGR jamais active (méthode forum ecuedit)" },
+      "relocation": { "method": "nearby-anchor", "anchorMap": "AccPed_trqEngLoGear_MAP" }
+    }
+  ]
+}
