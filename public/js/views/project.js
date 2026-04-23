@@ -573,7 +573,27 @@ export async function renderProject(container, { projectId, onBack }) {
       } catch (e) {
         setStatus(`Erreur chargement ${name}: ${e.message}`);
       }
-    }
+    },
+    // 2-refs compare callback : bufA = "before", bufB = "after". Affiche
+    // l'éditeur avec bufB comme données principales et bufA en compareRom.
+    // Ne modifie pas le romData de la working tree (juste affichage).
+    onCompareRefsMap: async (name, bufA, bufB, refA, refB) => {
+      try {
+        const full = await api.getProjectParam(projectId, name);
+        currentParam = full;
+        if (mapEditor) {
+          const labelA = refA.length === 40 ? refA.slice(0, 8) : refA;
+          const labelB = refB.length === 40 ? refB.slice(0, 8) : refB;
+          mapEditor.showCompare(full, bufB, bufA, `${labelA} → ${labelB}`);
+        }
+        if (hexEditor) {
+          hexEditor.scrollToOffset(full.address);
+        }
+        setStatus(`Compare 2 refs : ${name} (${refA.slice(0,8)} → ${refB.slice(0,8)})`);
+      } catch (e) {
+        setStatus(`Erreur compare : ${e.message}`);
+      }
+    },
   });
 
   // ── Branch switcher ──────────────────────────────────────────────────────────

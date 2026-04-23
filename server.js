@@ -239,6 +239,44 @@ app.get('/api/projects/:id/git/diff-maps/:hash', async (req, res) => {
   }
 });
 
+// Diff map-level entre 2 refs arbitraires (hash, branche, tag, HEAD~N…).
+// Permet de comparer "stage1 vs stage2" ou "master vs experimentA" sans
+// passer par le diff commit-vs-parent classique.
+app.get('/api/projects/:id/git/diff-maps-between/:refA/:refB', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+
+    const gm = new GitManager(pm.getProjectDir(proj.id));
+    const { refA, refB } = req.params;
+
+    let bufA, bufB;
+    try {
+      [bufA, bufB] = await Promise.all([
+        gm.readFileAtCommit(refA),
+        gm.readFileAtCommit(refB),
+      ]);
+    } catch (e) {
+      return res.status(404).json({ error: 'ref non résolue : ' + e.message });
+    }
+
+    const a2l = await getA2lForProject(proj);
+    if (!a2l) return res.json({ refA, refB, maps: [], error: 'No A2L for this ECU' });
+
+    // Direction : A = "before", B = "after"
+    const { maps, intervals } = mapsChanged(bufA, bufB, a2l.characteristics);
+    res.json({
+      refA, refB,
+      maps,
+      intervalCount: intervals.length,
+      sizeA: bufA.length,
+      sizeB: bufB.length,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // What maps differ between HEAD and the working-tree rom.bin (used for auto-generated commit messages).
 app.get('/api/projects/:id/git/diff-maps-head', async (req, res) => {
   try {

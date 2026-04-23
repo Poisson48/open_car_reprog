@@ -21,6 +21,7 @@ export class GitPanel {
       <div class="git-compare-area">
         <button class="btn btn-sm" id="git-compare-btn" title="Comparer la ROM actuelle à un fichier externe (.bin)">📁 Comparer avec un fichier…</button>
         <input type="file" id="git-compare-input" accept=".bin,.BIN,.hex,.HEX" style="display:none">
+        <button class="btn btn-sm" id="git-compare-refs-btn" title="Comparer 2 commits ou branches arbitraires">🔀 Comparer 2 commits / branches…</button>
         <div id="git-compare-status" class="git-compare-status" style="display:none"></div>
       </div>
       <div class="git-slots-area">
@@ -59,6 +60,10 @@ export class GitPanel {
       if (f) this._onCompareFile(f);
       cmpInput.value = '';
     });
+
+    // Compare-2-refs wiring (branches / commits arbitraires)
+    const cmpRefsBtn = this.el.querySelector('#git-compare-refs-btn');
+    cmpRefsBtn?.addEventListener('click', () => this._openCompareRefsModal());
 
     // Multi-ROM slots wiring
     const slotBtn = this.el.querySelector('#git-slot-add');
@@ -345,6 +350,123 @@ export class GitPanel {
       } catch (e) {
         alert('Restauration échouée: ' + e.message);
       }
+    });
+  }
+
+  // Modal : compare 2 refs (commits OU branches OU tags) arbitraires.
+  // Dropdowns peuplées depuis this.entries (log) + branches.all.
+  async _openCompareRefsModal() {
+    const existing = document.getElementById('git-compare-refs-modal');
+    if (existing) existing.remove();
+
+    // Récupère la liste des branches pour les proposer aussi
+    let branches = [];
+    try {
+      const b = await fetch(`/api/projects/${this.projectId}/git/branches`).then(r => r.json());
+      branches = b.all || [];
+    } catch {}
+
+    // Construit les options : branches d'abord (utilité), puis commits
+    const options = [];
+    for (const br of branches) options.push({ value: br, label: `⎇ ${br}` });
+    for (const c of this.entries) {
+      const refs = (c.refs || []).map(r => r.name).join(' ');
+      const hash8 = c.hash.slice(0, 8);
+      const msg = c.message.slice(0, 50);
+      options.push({ value: c.hash, label: `${hash8}  ${msg}${refs ? '  (' + refs + ')' : ''}` });
+    }
+
+    const mkSelect = (id, defaultVal) => `
+      <select id="${id}" style="flex:1;padding:4px 6px;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:monospace;font-size:11px">
+        ${options.map(o => `<option value="${o.value}" ${o.value === defaultVal ? 'selected' : ''}>${o.label}</option>`).join('')}
+      </select>`;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'git-compare-refs-modal';
+    overlay.className = 'modal-overlay';
+    // Default : A = le commit HEAD~1 (ou root), B = HEAD
+    const defaultA = this.entries[1]?.hash || this.entries[this.entries.length - 1]?.hash;
+    const defaultB = this.entries[0]?.hash;
+    overlay.innerHTML = `
+      <div class="modal" style="min-width:640px;max-width:880px">
+        <div style="display:flex;align-items:center;margin-bottom:12px">
+          <h2 style="flex:1">🔀 Comparer 2 commits / branches</h2>
+          <button class="btn btn-sm" id="crm-close">✕</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <label style="display:flex;gap:8px;align-items:center;font-size:12px">
+            <span style="width:60px;color:var(--text-dim)">Avant (A)</span>
+            ${mkSelect('crm-ref-a', defaultA)}
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;font-size:12px">
+            <span style="width:60px;color:var(--text-dim)">Après (B)</span>
+            ${mkSelect('crm-ref-b', defaultB)}
+          </label>
+          <button class="btn btn-primary" id="crm-compare">Comparer →</button>
+          <div id="crm-result" style="margin-top:8px;max-height:420px;overflow-y:auto"></div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('#crm-close').addEventListener('click', () => overlay.remove());
+
+    overlay.querySelector('#crm-compare').addEventListener('click', async () => {
+      const a = overlay.querySelector('#crm-ref-a').value;
+      const b = overlay.querySelector('#crm-ref-b').value;
+      if (a === b) { alert('A et B sont identiques.'); return; }
+      const resultEl = overlay.querySelector('#crm-result');
+      resultEl.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-dim)"><div class="spinner"></div> Calcul du diff…</div>';
+      try {
+        const res = await fetch(`/api/projects/${this.projectId}/git/diff-maps-between/${encodeURIComponent(a)}/${encodeURIComponent(b)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'diff failed');
+        this._renderCompareRefsResult(resultEl, a, b, data, overlay);
+      } catch (e) {
+        resultEl.innerHTML = `<div style="color:var(--danger);padding:12px">${e.message}</div>`;
+      }
+    });
+  }
+
+  _renderCompareRefsResult(container, refA, refB, data, overlay) {
+    if (!data.maps?.length) {
+      container.innerHTML = `<div style="padding:16px;color:var(--text-dim)">Aucune carte A2L ne diffère entre ces 2 refs. ${data.error ? '<br><em>' + data.error + '</em>' : ''}</div>`;
+      return;
+    }
+    const header = `<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">
+      <strong>${data.maps.length}</strong> cartes différentes · A = <code>${refA.slice(0, 16)}</code> · B = <code>${refB.slice(0, 16)}</code>
+    </div>`;
+    const rows = data.maps.map(m => {
+      const sample = m.sample ? `${m.sample.before} → ${m.sample.after}` : '';
+      const tag = `<span class="param-type-badge badge-${m.type}">${m.type}</span>`;
+      return `
+        <div class="map-diff-row" data-name="${m.name}" data-address="${m.address}" style="padding:6px 8px;border-bottom:1px solid var(--border);cursor:pointer;font-size:11px">
+          ${tag}
+          <strong>${m.name}</strong>
+          <span style="color:var(--text-dim)">${m.cellsChanged}/${m.totalCells} cells</span>
+          <span style="color:var(--accent)">${sample}</span>
+          <div style="color:var(--text-dim);font-size:10px">0x${m.address.toString(16).toUpperCase()} · ${(m.description || '').slice(0, 60)}</div>
+        </div>`;
+    }).join('');
+    container.innerHTML = header + rows;
+
+    container.querySelectorAll('.map-diff-row').forEach(row => {
+      row.addEventListener('click', async () => {
+        const name = row.getAttribute('data-name');
+        overlay.remove();
+        // Load both bufA and bufB, then open map editor in compare mode
+        try {
+          const [bufA, bufB] = await Promise.all([
+            fetch(`/api/projects/${this.projectId}/rom?commit=${encodeURIComponent(refA)}`).then(r => r.arrayBuffer()),
+            fetch(`/api/projects/${this.projectId}/rom?commit=${encodeURIComponent(refB)}`).then(r => r.arrayBuffer()),
+          ]);
+          if (this.onCompareRefsMap) {
+            this.onCompareRefsMap(name, new Uint8Array(bufA), new Uint8Array(bufB), refA, refB);
+          }
+        } catch (e) {
+          alert('Chargement des ROMs échoué : ' + e.message);
+        }
+      });
     });
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "open-car-reprog",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Open source ECU reprogramming tool - EDC16C34 and beyond",
   "main": "server.js",
   "scripts": {
