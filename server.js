@@ -11,6 +11,7 @@ const { applyPctToMap, readValue, writeValue } = require('./src/rom-patcher');
 const { getEcu, listEcus } = require('./src/ecu-catalog');
 const { listTemplates, getTemplate, listTemplatesForEcu } = require('./src/vehicle-templates');
 const { mapsChanged } = require('./src/map-differ');
+const { findMaps } = require('./src/map-finder');
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 32 * 1024 * 1024 } });
@@ -713,6 +714,56 @@ app.post('/api/projects/:id/apply-template/:tid', async (req, res) => {
 
     const result = await applyTemplateToProject(proj, template);
     res.json({ ok: true, template: template.id, ...result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Map-Finder — auto-détection de cartographies sans A2L ─────────────────────
+// Scanne la ROM pour des blocs `Kf_Xs16_Ys16_Ws16` (header nx/ny inline +
+// axes monotones + data smooth). Côté serveur parce que l'upload round-trip
+// d'une ROM 2 Mo vers le navigateur pour scanner côté client serait plus lent
+// que 30ms d'exécution Node.
+
+app.get('/api/projects/:id/auto-find-maps', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.status(400).json({ error: 'No ROM imported' });
+
+    const buf = fs.readFileSync(pm.getRomPath(proj.id));
+
+    const opts = {};
+    if (req.query.minN) opts.minN = Math.max(2, Math.min(64, +req.query.minN));
+    if (req.query.maxN) opts.maxN = Math.max(2, Math.min(64, +req.query.maxN));
+    if (req.query.limit) opts.limit = Math.max(1, Math.min(500, +req.query.limit));
+    if (req.query.startOffset) opts.startOffset = +req.query.startOffset;
+    if (req.query.endOffset) opts.endOffset = +req.query.endOffset;
+
+    // Cross-reference with A2L: tag candidates whose address matches a known map.
+    const a2l = await getA2lForProject(proj);
+    const knownByAddr = new Map();
+    if (a2l) {
+      for (const c of a2l.characteristics) {
+        if (c.address !== undefined) knownByAddr.set(c.address, c.name);
+      }
+    }
+
+    const t0 = Date.now();
+    const maps = findMaps(buf, opts);
+    const ms = Date.now() - t0;
+
+    for (const m of maps) {
+      const known = knownByAddr.get(m.address);
+      if (known) m.knownName = known;
+    }
+
+    res.json({
+      romSize: buf.length,
+      scanMs: ms,
+      count: maps.length,
+      maps,
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

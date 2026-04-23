@@ -4,6 +4,7 @@ import { ParamPanel } from '../components/param-panel.js';
 import { MapEditor } from '../components/map-editor.js';
 import { GitPanel } from '../components/git-panel.js';
 import { AutoMods } from '../components/auto-mods.js';
+import { MapFinder } from '../components/map-finder.js';
 import { BranchSwitcher } from '../components/branch-switcher.js';
 import { showEditModal } from './home.js';
 
@@ -44,6 +45,7 @@ export async function renderProject(container, { projectId, onBack }) {
           <button class="btn btn-sm" id="btn-goto">↵ Go</button>
           <button class="btn btn-sm" id="btn-edit-project" title="Modifier les infos du projet">✎ Modifier</button>
           <button class="btn btn-sm" id="btn-auto-mods" title="Modifications automatiques EDC16C34" style="color:var(--warn);border-color:var(--warn)" ${!project.hasRom ? 'disabled' : ''}>⚡ Auto-mods</button>
+          <button class="btn btn-sm" id="btn-map-finder" title="Détecter automatiquement les cartographies dans la ROM" ${!project.hasRom ? 'disabled' : ''}>🔍 Auto-find</button>
           <button class="btn btn-sm" id="btn-a2l-upload" title="Charger un fichier A2L/DAMOS personnalisé pour ce projet">📑 A2L</button>
           <input type="file" id="a2l-file-input" accept=".a2l,.A2L" style="display:none">
           <span id="branch-switcher-slot"></span>
@@ -300,6 +302,25 @@ export async function renderProject(container, { projectId, onBack }) {
         }
       });
       am.open();
+    });
+
+    document.getElementById('btn-map-finder')?.addEventListener('click', () => {
+      if (!romData) return;
+      const mf = new MapFinder({
+        projectId,
+        onGoto: ({ address, blockSize, name }) => {
+          if (!hexEditor) return;
+          hexEditor.scrollToOffset(address);
+          hexEditor.setHighlights([{
+            start: address,
+            end: address + blockSize,
+            color: 'rgba(255, 170, 40, 0.45)',
+            label: name || `Auto-found ${blockSize}B`
+          }]);
+          setStatus(`Map auto-detect: 0x${address.toString(16).toUpperCase()} (${blockSize} bytes)`);
+        }
+      });
+      mf.open();
     });
 
     document.getElementById('btn-import-replace')?.addEventListener('click', () => {

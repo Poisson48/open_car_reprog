@@ -258,6 +258,19 @@ body {
 .am-template { border-left: 3px solid var(--accent); }
 .am-tag { display: inline-block; font-size: 10px; padding: 1px 6px; margin-left: 4px; background: var(--bg2); color: var(--text-dim); border-radius: 8px; }
 
+/* Map-Finder modal */
+.mf-row { position: relative; border-bottom: 1px solid var(--border); background: var(--panel); }
+.mf-row:hover { background: var(--bg2); }
+.mf-score-bar { position: absolute; top: 0; left: 0; bottom: 0; background: rgba(100, 150, 240, 0.12); pointer-events: none; }
+.mf-row-inner { position: relative; display: flex; align-items: center; gap: 12px; padding: 6px 10px; font-size: 12px; }
+.mf-addr { font-family: monospace; color: var(--accent); min-width: 80px; }
+.mf-dims { min-width: 55px; font-family: monospace; color: var(--text-hi); }
+.mf-score { min-width: 40px; font-weight: 700; }
+.mf-axes { flex: 1; color: var(--text-dim); font-size: 11px; }
+.mf-data { min-width: 140px; color: var(--text-dim); font-size: 11px; }
+.mf-known { min-width: 90px; text-align: right; }
+.mf-goto { min-width: 68px; }
+
 .map-content {
   display: flex;
   flex: 1;

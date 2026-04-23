@@ -30,6 +30,20 @@ pour toute la partie versionnement / comparaison / variantes.
 - **6638 paramètres A2L** parsés depuis le DAMOS (cache JSON de 3,1 Mo généré au 1er démarrage)
 - **Navigateur de paramètres** — recherche texte, filtres VALUE / CURVE / MAP / VAL_BLK, scroll infini
 
+### Auto-détection de cartographies (Map-Finder)
+
+Scanne la ROM pour des MAPs sans A2L. Fenêtre glissante, filtre les blocs dont
+le header `(nx, ny)` est plausible + axes monotones + data lisse. Score par
+smoothness / variance / taille préférée, tri décroissant, dédup des overlaps.
+
+Utile quand :
+- l'A2L est absent (ECU obscur) ou partiel
+- on veut repérer des MAPs non documentées dans l'A2L officiel
+
+~30 ms pour un scan complet de 2 Mo côté serveur. Clic sur un candidat → saut du hex editor + surlignage du bloc.
+
+![map finder](docs/screenshots/map-finder.png)
+
 ### Modifications automatiques (EDC16C34)
 - **Templates véhicule** — presets one-click par famille de voiture (PSA 1.6 HDi 110 Stage 1 Safe,
   Stage 1 Sport + Pop&Bang, Dépollution OFF). Un seul bouton applique Stage 1 + Pop&Bang + auto-mods

@@ -25,6 +25,7 @@ server.js                   Express REST API + point d'entrée
 src/
   ecu-catalog.js            Registre de 13 ECUs (EDC16/EDC17/ME7/MED17)
   vehicle-templates.js      Presets one-click par famille véhicule (Stage 1 Safe / Sport / Dépollution)
+  map-finder.js             Heuristique auto-détection de MAPs (header inline + axes monotones + data smooth)
   project-manager.js        Projets sur filesystem (projects/<uuid>/)
   git-manager.js            Git par projet : branches, log avec parents+refs, diff binaire, WIP auto-commit au switch
   a2l-parser.js             Parser ASAP2 récursif → 6638 caractéristiques EDC16C34
@@ -47,6 +48,7 @@ public/
       git-panel.js          Historique git avec graph SVG (lanes colorées + ref badges), diff map-level, restore, ✨ suggestion msg
       branch-switcher.js    Dropdown branches dans la toolbar
       auto-mods.js          Modifications automatiques par ECU
+      map-finder.js         Modal liste des candidats auto-détectés, tri par score, clic → saut hex editor
 ressources/
   edc16c34/damos.a2l        Fichier A2L Bosch EDC16C34 (440k lignes)
   edc16c34/damos.cache.json Cache JSON parsé (3.1 MB, gitignored, généré au 1er accès — SUPPRIMER pour forcer le re-parse)
@@ -104,6 +106,7 @@ docs/
 | GET | /api/templates | Liste tous les templates véhicule |
 | GET | /api/projects/:id/templates | Templates compatibles avec l'ECU du projet |
 | POST | /api/projects/:id/apply-template/:tid | Applique un template (Stage 1 + Pop&Bang + auto-mods) en un call |
+| GET | /api/projects/:id/auto-find-maps | Scan heuristique de la ROM → liste des candidats MAPs triés par score (cross-ref A2L inclus) |
 
 ## Format ROM — Kf_Xs16_Ys16_Ws16 (Bosch DAMOS)
 
@@ -146,6 +149,38 @@ Cache auto dans `ressources/edc16c34/damos.cache.json` (généré au 1er démarr
 
 Pour ajouter un ECU : remplir son entrée dans `src/ecu-catalog.js`
 (stage1Maps + popbangParams + autoModPatterns avec les adresses confirmées).
+
+## Map-Finder — `src/map-finder.js`
+
+Détection heuristique de MAPs dans une ROM sans A2L (ou pour compléter un A2L partiel).
+À chaque offset pair, interprète `(nx, ny)` comme UWORD BE. Si dans `[minN, maxN]`
+(défaut 4..32), lit les axes aux offsets Bosch (N_X → N_Y → axe X → axe Y → data).
+
+**Filtres** (tous obligatoires pour passer) :
+- nx, ny dans les bornes
+- axes strictement monotones (croissants OU décroissants)
+- span d'axe ≥ 10 (évite axes constants)
+- range data ≥ 5 (exclut zones de 0xFF / 0x00 / padding)
+
+**Score** (0..1) = 0.55 × smoothness + 0.25 × variance + 0.20 × taille préférée
+- smoothness : 1 − (moyenne |diff adjacents| / range total)
+- variance : min(1, range / 1000)
+- taille : pic à nx+ny = 32 (16×16), décroit linéairement ±40
+
+**Dédup** : les candidats qui se chevauchent (± 16 octets) sont fusionnés, on garde le plus haut score.
+
+**Perf** : ~30 ms pour scanner 2 MB sur un Bosch réel. Le scan est côté serveur
+(Node) — l'upload round-trip au navigateur pour scanner côté client serait plus lent.
+
+**Limites** : ne détecte que les layouts type `Kf_Xs16_Ys16_Ws16` (header nx/ny
+inline). Les MAPs EDC16C34 Stage 1 utilisent un autre layout (dims fixes en
+RECORD_LAYOUT, pas de header inline) — elles ne sortent pas dans les résultats.
+C'est cohérent avec l'objectif : le finder est utile pour les ROMs sans A2L
+ou les ECUs où l'A2L est partiel.
+
+**Cross-ref A2L** : la route serveur ajoute `knownName` sur chaque candidat dont
+l'adresse correspond à une caractéristique de l'A2L projet. Permet de cibler
+les candidats "hors A2L" d'un coup d'œil.
 
 ## Templates véhicule — `src/vehicle-templates.js`
 
