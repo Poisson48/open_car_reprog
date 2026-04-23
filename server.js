@@ -15,6 +15,7 @@ const { listRecipes, getRecipe, applyRecipe } = require('./src/open-damos-recipe
 const { listTemplates, getTemplate, listTemplatesForEcu } = require('./src/vehicle-templates');
 const { mapsChanged } = require('./src/map-differ');
 const { findMaps } = require('./src/map-finder');
+const { generateReport } = require('./src/report-generator');
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 32 * 1024 * 1024 } });
@@ -281,6 +282,40 @@ app.get('/api/projects/:id/git/diff-maps-between/:refA/:refB', async (req, res) 
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// HTML report : diff ROM actuelle vs backup original, imprimable en PDF via le navigateur.
+app.get('/api/projects/:id/report.html', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).send('Project not found');
+    if (!proj.hasRom) return res.status(400).send('Project has no ROM');
+
+    const backupPath = pm.getBackupPath(proj.id);
+    if (!backupPath) return res.status(400).send('No original ROM backup available');
+
+    const originalBuf = fs.readFileSync(backupPath);
+    const currentBuf = fs.readFileSync(pm.getRomPath(proj.id));
+    const a2l = await getA2lForProject(proj);
+
+    const gm = new GitManager(pm.getProjectDir(proj.id));
+    const log = await gm.log().catch(() => []);
+    const headHash = log[0]?.hash || null;
+    const branches = await gm.listBranches().catch(() => ({ current: null }));
+
+    const html = generateReport({
+      project: proj,
+      originalBuf,
+      currentBuf,
+      a2l,
+      headHash,
+      branchName: branches.current
+    });
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (e) {
+    res.status(500).send('Report error: ' + e.message);
   }
 });
 

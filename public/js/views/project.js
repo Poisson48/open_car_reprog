@@ -63,6 +63,7 @@ export async function renderProject(container, { projectId, onBack }) {
             <button class="btn btn-sm" id="btn-import-ols">WinOLS import</button>
             <a class="btn btn-sm" id="btn-dl-rom" download="${project.romName || 'rom.bin'}" href="/api/projects/${projectId}/rom">⬇ Télécharger ROM</a>
             <a class="btn btn-sm" id="btn-dl-backup" href="/api/projects/${projectId}/rom/backup" download="rom.original.bin">⬇ ROM originale</a>
+            <a class="btn btn-sm" id="btn-report" href="/api/projects/${projectId}/report.html" target="_blank" title="Ouvre un rapport HTML des cartes modifiées — Ctrl-P pour PDF">📄 Rapport</a>
           `}
         </div>
 
