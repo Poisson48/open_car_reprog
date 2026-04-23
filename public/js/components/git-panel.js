@@ -1,12 +1,13 @@
 import { api } from '../api.js';
 
 export class GitPanel {
-  constructor(el, { projectId, onRestore, onMapClick, onCompareRefsMap }) {
+  constructor(el, { projectId, onRestore, onMapClick, onCompareRefsMap, onBeforeCommit }) {
     this.el = el;
     this.projectId = projectId;
     this.onRestore = onRestore;
     this.onMapClick = onMapClick;
     this.onCompareRefsMap = onCompareRefsMap;
+    this.onBeforeCommit = onBeforeCommit;
     this.entries = [];
     this.activeHash = null;
     this._build();
@@ -225,6 +226,10 @@ export class GitPanel {
     const msgEl = this.el.querySelector('#git-commit-msg');
     const msg = msgEl.value.trim() || 'Update ROM';
     try {
+      // Flush any pending in-memory edits BEFORE committing. Otherwise the
+      // commit only captures the last Ctrl-S'd state and silently drops the
+      // user's latest map changes.
+      if (this.onBeforeCommit) await this.onBeforeCommit();
       await api.gitCommit(this.projectId, msg);
       msgEl.value = '';
       await this.refresh();

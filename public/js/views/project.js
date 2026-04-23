@@ -519,8 +519,31 @@ export async function renderProject(container, { projectId, onBack }) {
 
   // ── Git Panel ────────────────────────────────────────────────────────────────
 
+  // Flush pending edits in-memory → PATCH to server. Used by Ctrl-S AND by
+  // the Commit button (otherwise "Commit modifications" silently commits the
+  // previous on-disk state and discards the user's latest map edits).
+  async function flushPendingEdits() {
+    if (!hexEditor || !hexEditor.modified.size) return 0;
+    const mods = hexEditor.getModifiedBytes();
+    if (!mods.length) return 0;
+    const patches = [];
+    let cur = [mods[0]];
+    for (let i = 1; i < mods.length; i++) {
+      if (mods[i].offset === cur[cur.length-1].offset + 1) cur.push(mods[i]);
+      else { patches.push(cur); cur = [mods[i]]; }
+    }
+    patches.push(cur);
+    for (const patch of patches) {
+      await api.patchBytes(projectId, patch[0].offset, patch.map(m => m.value));
+    }
+    const n = mods.length;
+    hexEditor.clearModified();
+    return n;
+  }
+
   const gitPanel = new GitPanel(document.getElementById('git-panel'), {
     projectId,
+    onBeforeCommit: flushPendingEdits,
     onRestore: async () => {
       if (project.hasRom) await loadRom();
     },
@@ -658,26 +681,9 @@ export async function renderProject(container, { projectId, onBack }) {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
       if (!hexEditor || !hexEditor.modified.size) return;
-
-      // Patch all modified bytes to server
-      const mods = hexEditor.getModifiedBytes();
-      if (!mods.length) return;
-
-      // Group consecutive bytes
-      const patches = [];
-      let cur = [mods[0]];
-      for (let i = 1; i < mods.length; i++) {
-        if (mods[i].offset === cur[cur.length-1].offset + 1) cur.push(mods[i]);
-        else { patches.push(cur); cur = [mods[i]]; }
-      }
-      patches.push(cur);
-
       setStatus('Sauvegarde des modifications…');
-      for (const patch of patches) {
-        await api.patchBytes(projectId, patch[0].offset, patch.map(m => m.value));
-      }
-      hexEditor.clearModified();
-      setStatus('Modifications sauvegardées — Ouvrez le panel Git pour committer');
+      const n = await flushPendingEdits();
+      setStatus(n > 0 ? `${n} octet(s) sauvegardé(s) — Ouvrez le panel Git pour committer` : 'Rien à sauvegarder');
     }
   });
 
