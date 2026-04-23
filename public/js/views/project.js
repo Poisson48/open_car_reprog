@@ -54,7 +54,7 @@ export async function renderProject(container, { projectId, onBack }) {
             <span id="btn-units-label">Nm · °C</span>
           </button>
           <span id="branch-switcher-slot"></span>
-          <div style="flex:1"></div>
+          <div class="toolbar-spacer"></div>
           ${!project.hasRom ? `
             <button class="btn btn-primary btn-sm" id="btn-import-rom">📂 Importer ROM</button>
             <button class="btn btn-sm" id="btn-import-ols">WinOLS (.ols/.bin/.hex)</button>

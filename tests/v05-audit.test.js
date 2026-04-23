@@ -170,14 +170,22 @@ async function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
     //════════════════════════════════════════════════════════════════════════
     console.log('\n═══ D. Compare mode UI ═══');
 
-    // En compare mode, le toggle unités doit aussi convertir les valeurs affichées
-    await page.click('#btn-units-toggle'); // retour Nm
-    await wait(400);
-    await page.click('#btn-units-toggle'); // lb·ft
+    // En compare mode, on vérifie que le toggle unités synchronise le header.
+    // État avant D1 : la toolbar peut être Nm ou lb·ft selon le chemin. On
+    // lit l'état courant depuis le bouton, on clique une fois, et on vérifie
+    // que le header A2L affiche bien l'unité opposée.
+    const before = await page.textContent('#btn-units-label');
+    const startedInLbft = /lb·ft/.test(before);
+    await page.click('#btn-units-toggle');
     await wait(400);
     await shot(page, 'D1-compare-mode-units');
     const compareHeader = await page.$eval('.map-toolbar', el => el.textContent).catch(() => '');
-    if (!/lb·ft/i.test(compareHeader)) add('warn', 'compare+units', 'toolbar ne montre pas lb·ft après toggle en compare mode');
+    const expectedUnit = startedInLbft ? 'Nm' : 'lb·ft';
+    const expectedRe = startedInLbft ? /\bNm\b/ : /lb·ft/i;
+    if (!expectedRe.test(compareHeader)) add('bug', 'compare+units', `toolbar map pas en "${expectedUnit}" après toggle en compare mode (header: "${compareHeader.slice(0, 120)}")`);
+    // Vérifier aussi qu'on est toujours en compare mode (bannière visible)
+    const bannerStill = await page.$('.map-compare-banner');
+    if (!bannerStill) add('bug', 'compare+units', 'toggle unités a cassé le compare mode (bannière disparue)');
 
     // Le cycle 3D modes
     await page.click('#map-toggle-3d'); // back to 2D
