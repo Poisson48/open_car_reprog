@@ -412,21 +412,30 @@ export class AutoMods {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:4px';
 
-    // RPM slider
+    // RPM — snap sur les valeurs d'axe RPM des maps Bosch EDC16C34
+    // (AccPed_trqEng*_MAP xAxis). Mettre une valeur "hors grille" marche
+    // techniquement (c'est un simple seuil) mais les forums recommandent
+    // de coller à un point d'axe pour que le datalog soit lisible.
+    const BOSCH_RPM_AXIS = [1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3500, 4000, 4500, 5000, 5300];
     const rpmRow = document.createElement('div');
     rpmRow.style.cssText = 'display:flex;align-items:center;gap:10px;font-size:12px';
     const rpmLabel = document.createElement('label');
     rpmLabel.textContent = 'RPM départ overrun :';
     rpmLabel.style.cssText = 'width:160px;flex-shrink:0';
-    const rpmSlider = document.createElement('input');
-    rpmSlider.type = 'range';
-    rpmSlider.min = 1000; rpmSlider.max = 5500; rpmSlider.step = 100; rpmSlider.value = 3000;
-    rpmSlider.style.cssText = 'flex:1';
+    const rpmSelect = document.createElement('select');
+    rpmSelect.style.cssText = 'flex:1;padding:4px 8px;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:3px';
+    for (const r of BOSCH_RPM_AXIS) {
+      const o = document.createElement('option');
+      o.value = r; o.textContent = r + ' tr/min';
+      if (r === 3000) o.selected = true; // défaut recommandé
+      rpmSelect.appendChild(o);
+    }
     const rpmVal = document.createElement('span');
-    rpmVal.textContent = '3000 tr/min';
-    rpmVal.style.cssText = 'width:90px;text-align:right;color:var(--accent)';
-    rpmSlider.addEventListener('input', () => { rpmVal.textContent = `${rpmSlider.value} tr/min`; });
-    rpmRow.append(rpmLabel, rpmSlider, rpmVal);
+    rpmVal.textContent = '(point d\'axe map)';
+    rpmVal.style.cssText = 'width:120px;text-align:right;color:var(--text-dim);font-size:10px';
+    // On expose une API {value: Number} pour que applyBtn continue à marcher
+    const rpmSlider = { get value() { return rpmSelect.value; } };
+    rpmRow.append(rpmLabel, rpmSelect, rpmVal);
 
     // Fuel qty slider
     const qRow = document.createElement('div');
