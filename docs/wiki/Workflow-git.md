@@ -157,6 +157,59 @@ Le bouton **`✕`** du banner libère le buffer en RAM côté serveur.
 
 ---
 
+## Compare 2 commits / branches arbitraires 🔀
+
+Bouton **`🔀 Comparer 2 commits / branches…`** dans la zone compare du panneau git. Ouvre un modal avec 2 dropdowns :
+
+- **Avant (A)** et **Après (B)** — peuplés avec :
+  - Les branches d'abord (`⎇ main`, `⎇ stage1`, `⎇ stage2-launch`…)
+  - Puis tous les commits du log (hash court + message + refs)
+
+Click **`Comparer →`** → liste map-level des cartes qui diffèrent, triée par tightness (fits exacts en haut). Click sur une carte → l'éditeur s'ouvre en compare mode entre **les deux buffers A et B** (ne touche pas à la working tree).
+
+Cas d'usage : comparer 2 branches de tuning (`stage1` vs `stage2`), comparer un commit d'il y a 3 jours avec HEAD, comparer deux versions d'un même tune juste avant de décider laquelle flasher.
+
+Endpoint : `GET /api/projects/:id/git/diff-maps-between/:refA/:refB` — accepte hash complet, hash court, branch, tag, `HEAD~N`, etc.
+
+---
+
+## Split view — 2 ROMs côte à côte ⇄
+
+Quand l'éditeur est en compare mode, bouton **`⇄ Split`** dans la bannière compare. Active un split complet :
+
+- **Tableau 2D** : 2 tables côte à côte, A (lecture seule) à gauche, B (éditable) à droite, **scroll synchronisé** ligne-à-ligne
+- **Heatmap 2D** : canvas coupé en 2 quadrants, `min/max` commun → couleurs directement comparables
+- **Surface 3D** (si `🗻 3D` activé) : 2 surfaces côte à côte, rotations synchronisées, même échelle Z
+
+![split 2D](images/verify-split-05-split-view-2D.png)
+![split 3D](images/verify-split-06-split-view-3D.png)
+
+Toggle `⇄ Split` → `◻ Mono` pour revenir au tableau unique.
+
+---
+
+## Liste cliquable des cellules modifiées 📝
+
+En compare mode, bouton **`📝 Modifs`** dans la bannière → panneau flottant à droite listant toutes les cellules qui diffèrent :
+
+```
+Cellules modifiées (96)
+───────────────────────
+[3000, 1700]   2500.00 → 3250.00   +750.00
+[3000, 1500]   2200.00 → 2860.00   +660.00
+[3500, 1700]   2000.00 → 2600.00   +600.00
+...
+```
+
+- Triées par **magnitude de delta desc** (plus grosses modifs en haut)
+- Format : coordonnées physiques (rpm, pédale %, mg/cyc…), valeur avant → après, delta coloré vert (augmenté) / rouge (diminué)
+- **Click sur une ligne** → scroll vers la cellule dans le tableau B avec **flash doré 1.5 s** pour la repérer
+- Fonctionne pour **MAP** et **CURVE**
+
+![liste modifs](images/verify-split-07-modifs-list.png)
+
+---
+
 ## Restauration
 
 Bouton **`⟲ Restaurer`** dans le diff map-level d'un commit → ramène le ROM à cet état via :

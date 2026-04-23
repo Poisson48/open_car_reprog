@@ -24,13 +24,13 @@
 - **[Paramètres A2L](Parametres-A2L)** — 6638 caractéristiques EDC16C34 parsées, recherche, filtres, A2L perso par projet
 
 ### Modifications
-- **[Auto-mods](Auto-mods)** — Stage 1, Pop & Bang, DPF/FAP OFF, EGR OFF, Speed limiter
+- **[Auto-mods](Auto-mods)** — Stage 1, Pop & Bang, DPF/FAP OFF, EGR OFF + **6 recettes auto-tune one-click** (Speed Limiter OFF, Rev Limit raise, Torque Limiter +30%, Rail Pressure +15%, Smoke Limiter -5%, Full Dépollution)
 - **[Templates véhicule](Templates-vehicule)** — presets one-click par famille de voiture (Stage 1 Safe / Sport / Dépollution)
 - **[Map-Finder](Map-Finder)** — détection heuristique auto de MAPs (ROMs sans A2L)
-- **[open_damos](Open-DAMOS)** 🧬 — damos libre (CC0) qui relocalise les maps par empreinte d'axes. Stage 1 marche sur n'importe quel firmware EDC16C34 PSA sans acheter de damos Bosch
+- **[open_damos](Open-DAMOS)** 🧬 — damos libre (CC0) qui relocalise les maps par empreinte d'axes. Stage 1 marche sur n'importe quel firmware EDC16C34 PSA sans acheter de damos Bosch. Badge damos-match 🟢/🟠/🔴 dans la toolbar prévient si ton damos ne matche pas. Export A2L standard pour WinOLS.
 
 ### Git workflow
-- **[Workflow git](Workflow-git)** — branches, graph, diff map-level, auto-commit messages, compare view, compare vs fichier, restore, undo/redo
+- **[Workflow git](Workflow-git)** — branches, graph, diff map-level, auto-commit messages, compare view, compare vs fichier, **compare 2 commits/branches arbitraires**, **split view 2D/3D** (2 tableaux + 2 heatmaps + 2 surfaces côte à côte), **liste cliquable des modifs** (flash doré sur la cellule), restore, undo/redo
 
 ### Référence
 - **[ECUs supportés](ECUs-supportes)** — catalog, comment ajouter un nouvel ECU

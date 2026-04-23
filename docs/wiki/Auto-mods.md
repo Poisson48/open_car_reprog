@@ -4,9 +4,35 @@
 
 Le bouton **`⚡ Auto-mods`** de la toolbar ouvre la boîte à outils de modifications automatiques. Toutes les adresses et signatures sont **confirmées** sur EDC16C34 (Bosch, PSA 1.6 HDi 110 cv, calculateur des 206, 307, 308, Partner).
 
-La modal est structurée en deux sections :
-1. **🚗 Templates véhicule** (en haut) — presets one-click qui bundlent Stage 1 + Pop&Bang + auto-mods cohérents pour une famille de voiture. Voir [Templates véhicule](Templates-vehicule).
-2. **Modifications individuelles** (en dessous) — Stage 1 personnalisable, Pop & Bang, DPF/EGR/Swirl, speed limiter. Documentées ci-après.
+La modal est structurée en plusieurs sections :
+1. **🚗 Templates véhicule** — presets one-click qui bundlent Stage 1 + Pop&Bang + auto-mods cohérents pour une famille de voiture. Voir [Templates véhicule](Templates-vehicule).
+2. **🧬 Recettes open_damos** — **6 recettes prédéfinies** qui patchent automatiquement plusieurs entries open_damos relocalisées (marchent cross-firmware sans damos dédié). Section ci-dessous.
+3. **Modifications individuelles** — Stage 1 personnalisable, Pop & Bang, DPF/EGR/Swirl. Documentées ci-après.
+
+---
+
+## 🧬 Recettes auto-tune open_damos
+
+Chaque recette applique une liste d'opérations (patch de MAP, modification de VALUE, etc.) sur les entries **open_damos relocalisées** pour la ROM du projet. Marche sur n'importe quel firmware EDC16C34 PSA dès qu'il y a match fingerprint, sans damos dédié.
+
+| Recette | Risk | Effet | Opérations |
+|---------|------|-------|-----------|
+| 🏁 **Speed Limiter OFF** | low | 3 plafonds vitesse → 320 km/h | `VSSCD_vMax_C`, `CrCCD_vSetSpdMax_C`, `PrpCCD_vSetSpdMax_C` = 320 km/h |
+| 🔄 **Rev Limiter** | low | Seuil régime non-monitored → 5500 rpm | `AccPed_nLimNMR_C` = 5500 |
+| 💪 **Torque Limiter +30%** | medium | Plafonds protection couple relevés | `EngPrt_trqAPSLim_MAP` +30%, `EngPrt_qLim_CUR` +25% |
+| ⛽ **Rail Pressure +15%** | medium | Plafond max ~1800 bar (Stage 2+) | `Rail_pSetPointMax_MAP` +15% |
+| 💨 **Smoke Limiter -5%** | medium | Plus de fuel autorisé avant smoke cut diesel | `FlMng_rLmbdSmk_MAP` -5% |
+| ☢️ **Full Dépollution** | low | EGR OFF définitif + trq safety relevé | `AirCtl_nMin_C` = 8000 rpm, `AccPed_trqNMRMax_C` = 250 Nm |
+
+Chaque recette, après application, retourne le détail : adresse touchée par entry, méthode (`setPhys`, `addPct`, `setMapAll`), cellules changées, ou erreur si l'entry n'a pas été relocalisée.
+
+**Endpoints** :
+- `GET /api/open-damos/recipes` — liste + métadonnées (id, nom, risk, description)
+- `POST /api/projects/:id/open-damos-recipe/:recipeId` — applique sur la ROM active
+
+Code : `src/open-damos-recipes.js`. Ajouter une recette = 5 lignes (id, nom, risk, description, ops).
+
+---
 
 ---
 

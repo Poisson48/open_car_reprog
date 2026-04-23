@@ -1,11 +1,12 @@
 # open-car-reprog
 
-Logiciel open source de reprogrammation ECU, comparable à WinOLS, entièrement basé web.
-Première cible : **Bosch EDC16C34** (PSA 1.6 HDi 110cv — 206, 307, 308, Partner…), 12 autres ECUs
-déclarés dans le catalog (EDC17, ME7, MED17…).
+> **v0.4.3** — Logiciel open-source de reprogrammation ECU, comparable à WinOLS, entièrement basé web.
 
-Stack : **Node.js / Express** (back) + **Vanilla ES modules** (front, zéro build step) + **git** par projet
-pour toute la partie versionnement / comparaison / variantes.
+Première cible : **Bosch EDC16C34** (toute la famille PSA 1.6 HDi 75/90/110 cv DV6TED4 — Berlingo / Partner / 206 / 207 / 307 / 308 / 407 / C3 / C4, plus Ford Fiesta TDCi et Mazda 2/3 MZ-CD), 12 autres ECUs déclarés dans le catalog (EDC17, ME7, MED17…).
+
+Stack : **Node.js / Express** (back) + **Vanilla ES modules** (front, zéro build step) + **git** par projet pour toute la partie versionnement / comparaison / variantes.
+
+🧬 **[open_damos](https://github.com/Poisson48/open_car_reprog/wiki/Open-DAMOS)** — alternative libre (CC0) au damos Bosch propriétaire, **auto-relocalise les maps par empreinte d'axes** : Stage 1 marche sur n'importe quel firmware EDC16C34 PSA sans acheter de damos dédié (50-200 € habituellement).
 
 ---
 
@@ -52,8 +53,15 @@ Utile quand :
   ![vehicle templates](docs/screenshots/vehicle-templates.png)
 
 - **Stage 1** — 5 cartes (accélérateur, couple, rail pressure, limiteur couple) avec % ajustable par carte
-- **Pop & Bang** — seuil RPM + quantité d'injection en overrun
-- **DPF/FAP OFF**, **EGR OFF**, **Swirl OFF**, **Speed limiter OFF** — recherche signature + patch en 1 clic
+- **Pop & Bang** — seuil RPM sélectionnable (snappé aux points d'axe map Bosch) + quantité d'injection
+- **DPF/FAP OFF**, **EGR OFF**, **Swirl OFF** — recherche signature + patch en 1 clic
+- **🧬 Recettes auto-tune open_damos** — 6 recettes prédéfinies opérant sur les entries relocalisées :
+  - **Speed Limiter OFF** — les 3 plafonds vitesse (régulateur / diag / propulsion) → 320 km/h
+  - **Rev Limiter** — `AccPed_nLimNMR_C` → 5500 rpm (zone non-monitored relevée)
+  - **Torque Limiter +30%** — `EngPrt_trqAPSLim_MAP` + `EngPrt_qLim_CUR` (évite le clamp Stage 1/2)
+  - **Rail Pressure +15%** — plafond max à ~1800 bar pour Stage 2+
+  - **Smoke limiter -5%** — FlMng_rLmbdSmk_MAP, autorise plus de fuel avant smoke cut diesel
+  - **Full Dépollution** — AirCtl_nMin 8000 rpm + trq safety relevé
 
 ### Git-powered workflow
 
@@ -103,6 +111,26 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
 
   ![compare avec un fichier](docs/screenshots/compare-file-editor.png)
 
+- **🔀 Comparer 2 commits / branches arbitraires** — bouton `🔀 Comparer 2 commits / branches…`
+  dans le panel Git ouvre un modal avec 2 dropdowns (Avant A / Après B). Sélectionne
+  deux refs (commits, branches, tags), le diff map-level s'affiche. Click sur une map →
+  éditeur en compare mode entre les 2 refs. Idéal pour comparer `stage1` vs `stage2-launch`.
+
+- **⇄ Split view** — en compare mode, bouton `⇄ Split` dans la bannière :
+  - **2D** : 2 tableaux côte à côte (A lecture seule, B éditable), scroll synchronisé
+  - **Heatmap** : canvas coupé en 2 quadrants, même min/max pour couleurs comparables
+  - **3D** : 2 surfaces côte à côte avec rotations synchronisées, même échelle Z
+
+- **📝 Liste cliquable des cellules modifiées** — en compare mode, bouton `📝 Modifs` :
+  panneau flottant listant toutes les cellules qui diffèrent (triées par magnitude
+  delta desc), format `[rpm, pédale] : before → after  ±Δ`. Click sur une ligne →
+  scroll vers la cellule dans le tableau 2D avec **flash doré 1.5 s**.
+
+- **🚦 Damos-match badge** — petit badge 🟢/🟠/🔴 dans la toolbar qui indique si
+  le damos A2L matche ta ROM. 🔴 mismatch → open_damos prend le relais automatiquement
+  via fingerprint (Stage 1 marche quand même). Click → détails (source damos, nb
+  d'entries lisibles).
+
 - **Restauration** — bouton `⟲ Restaurer` par commit pour revenir à n'importe quel état.
 
 - **Undo / Redo** — `Ctrl-Z` défait la dernière édition (cellule ou lot `±%`), `Ctrl-Shift-Z` /
@@ -135,11 +163,17 @@ Le cœur du projet. Chaque projet est un repo git : historique, branches, restau
 
   ![notes par carte](docs/screenshots/map-notes.png)
 
-- **A2L / DAMOS custom par projet** — bouton `📑 A2L` dans la toolbar :
-  upload un fichier `.a2l` personnel, le parser serveur en extrait les
-  caractéristiques et la sidebar affiche cette liste au lieu de la catalog
-  ECU. Parfait pour bosser sur un ECU hors-catalog ou avec un DAMOS bricolé.
-  Le nom du fichier A2L en cours apparaît dans le fil d'ariane.
+- **A2L / DAMOS custom par projet** — bouton `📑 A2L` dans la toolbar ouvre une
+  modal de gestion : **uploader** un `.a2l` custom, **supprimer** le custom (retour
+  au catalog), **télécharger** l'open_damos A2L relocalisé pour cette ROM.
+  L'A2L custom remplace le catalog dans la sidebar ; son nom apparaît dans le
+  fil d'ariane. Le badge damos-match se rafraîchit automatiquement après un upload.
+
+- **🧬 Export open_damos A2L** — bouton `🧬 open_damos` dans la toolbar télécharge
+  un fichier `.a2l` ASAP2 standard **relocalisé pour ta ROM** (adresses trouvées
+  par fingerprint). Utilisable dans WinOLS / TunerPro / EcuFlash. Pour le Berlingo
+  SW 1037383736, un fichier pré-construit est inclus dans le repo :
+  `ressources/edc16c34/firmwares/9663944680_sw1037383736.a2l`.
 
 - **Multi-ROMs par projet** — section *ROMs du projet* dans le panel Git :
   ajoute autant de ROMs de référence que nécessaire (dumps clients, versions
@@ -164,6 +198,15 @@ node --watch server.js   # dev (hot reload)
 
 > Node 18+ requis.
 
+### One-shot sur Ubuntu
+
+```bash
+./run.sh              # pull + npm install si besoin + serveur :3002 + ouvre navigateur
+./run.sh --no-pull    # skip git pull (WIP local)
+./run.sh --no-open    # pas de navigateur (headless)
+PORT=3005 ./run.sh    # port perso
+```
+
 ---
 
 ## Workflow type
@@ -184,14 +227,20 @@ node --watch server.js   # dev (hot reload)
 
 ```
 server.js                   Express REST API (API listée plus bas)
+run.sh                      One-liner pull + start (Ubuntu)
 src/
   ecu-catalog.js            13 ECUs déclarées (EDC16/EDC17/ME7/MED17)
   a2l-parser.js             Parser ASAP2/DAMOS récursif → 6638 caractéristiques
   project-manager.js        CRUD projets sur filesystem (projects/<uuid>/)
   git-manager.js            Git par projet (branches, diff, restore, log, auto-commit WIP)
   map-differ.js             Calcule quelles caractéristiques A2L diffèrent entre 2 buffers
+  map-finder.js             Détection heuristique de MAPs sans A2L (scan layout Kf_Xs16_Ys16_Ws16)
   rom-patcher.js            Patch map Kf_Xs16_Ys16_Ws16 (SWORD big-endian)
   winols-parser.js          Import ZIP / Intel HEX / binaire brut
+  vehicle-templates.js      Templates véhicule (presets one-click par famille)
+  open-damos.js             Relocator par empreinte d'axes (fingerprint) + anchor
+  open-damos-a2l-export.js  Export A2L ASAP2 standard (baseline + relocated)
+  open-damos-recipes.js     6 recettes auto-tune (speed limiter OFF, rev limit, torque, rail, smoke, full dépollution)
 public/
   index.html                SPA shell
   css/app.css               Dark VSCode-like theme
@@ -209,11 +258,19 @@ public/
       auto-mods.js          Stage 1 / Pop&Bang / DPF / EGR / …
 ressources/
   edc16c34/
-    damos.a2l               Fichier DAMOS Bosch EDC16C34 (440k lignes)
+    damos.a2l               Fichier DAMOS Bosch EDC16C34 (440k lignes, ori.BIN = match 100%)
     damos.cache.json        Cache parser (3,1 Mo, gitignored)
+    open_damos.json         open_damos v1.2.0 — 24 entries CC0 avec fingerprints d'axes
+    OPEN_DAMOS.md           Philosophie + contribution guide
+    firmwares/
+      9663944680_sw1037383736.a2l   A2L pré-construit Berlingo II 75cv (77 KB, 175 chars)
+      9663944680_sw1037383736.json  open_damos composite avec adresses relocalisées
 tests/
-  branch-switcher.test.js   Test Playwright — branches
-  diff-map-level.test.js    Test Playwright — diff map-level
+  branch-switcher.test.js         Test Playwright — branches
+  diff-map-level.test.js          Test Playwright — diff map-level
+  open-damos.test.js              Régression relocation ori.BIN + Berlingo + random
+  ecu-catalog-edc16c34.test.js    Garde-fou Stage 1 addresses sur ori.BIN
+  berlingo-stage1-e2e.test.js     E2E Playwright Berlingo (badge + Stage 1 + 1707 bytes)
 ```
 
 ---
@@ -233,15 +290,23 @@ tests/
 | GET | `/api/projects/:id/git/diff/:hash` | Diff binaire (legacy) |
 | GET | `/api/projects/:id/git/diff-maps/:hash` | **Diff map-level** |
 | GET | `/api/projects/:id/git/diff-maps-head` | Diff HEAD vs working tree |
+| GET | `/api/projects/:id/git/diff-maps-between/:refA/:refB` | **Diff map-level entre 2 refs arbitraires** |
 | POST | `/api/projects/:id/git/restore/:hash` | Restaurer |
 | GET | `/api/projects/:id/git/branches` | Lister branches |
 | POST | `/api/projects/:id/git/branches` | Créer branche |
 | PUT | `/api/projects/:id/git/branches/:name` | Switch (auto-commit WIP) |
 | DELETE | `/api/projects/:id/git/branches/:name` | Supprimer |
+| GET | `/api/projects/:id/a2l/match` | **Damos-match score** (0-100, status match/partial/mismatch) |
+| POST | `/api/projects/:id/a2l` | Upload A2L custom |
+| DELETE | `/api/projects/:id/a2l` | Supprimer A2L custom |
+| GET | `/api/ecu/:ecu/open-damos.a2l` | **open_damos A2L baseline** |
+| GET | `/api/projects/:id/open-damos.a2l` | **open_damos A2L relocalisé** pour cette ROM |
+| GET | `/api/open-damos/recipes` | Liste des recettes auto-tune |
+| POST | `/api/projects/:id/open-damos-recipe/:id` | **Appliquer une recette** (speed_limiter_off, smoke_off, torque_limiter_off, rev_limit_raise, rail_max_raise, full_depollution) |
 | GET | `/api/ecu` | Catalog ECU |
 | GET | `/api/ecu/:ecu/parameters` | Params A2L (search, type, offset, limit) |
 | GET | `/api/ecu/:ecu/parameters/:name` | Param détaillé |
-| POST | `/api/projects/:id/stage1` | Stage 1 auto |
+| POST | `/api/projects/:id/stage1` | Stage 1 auto (cascade A2L custom → A2L catalog → open_damos fingerprint → catalog) |
 | POST | `/api/projects/:id/popbang` | Pop & Bang |
 
 ---
@@ -277,10 +342,10 @@ Chaque test Playwright génère des screenshots dans `tests/screenshots/` (gitig
 
 ## Calculateurs supportés
 
-| ECU | Véhicule | A2L | Stage 1 | Pop&Bang |
-|-----|----------|-----|---------|----------|
-| EDC16C34 | PSA 1.6 HDi 110cv | ✅ | ✅ | ✅ |
-| EDC17C46, EDC17CP44, ME7.x, MED17.x, … | 12 autres | déclarés dans catalog | à compléter | à compléter |
+| ECU | Véhicule | A2L catalog | open_damos | Stage 1 | Pop&Bang | Recettes |
+|-----|----------|-------------|------------|---------|----------|----------|
+| **EDC16C34** | PSA 1.6 HDi 75/90/110 cv DV6TED4 (Berlingo, Partner, 206/207/307/308/407, C3/C4, Fiesta TDCi, Mazda 2/3 MZ-CD) | ✅ | ✅ (24 entries v1.2.0) | ✅ | ✅ | ✅ 6 recettes |
+| EDC17C46, EDC17CP44, ME7.x, MED17.x, … | 12 autres | déclarés dans catalog | à compléter | à compléter | à compléter | — |
 
 ---
 
