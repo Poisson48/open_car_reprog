@@ -172,6 +172,7 @@ body {
 }
 .toolbar input[type=text]:focus { border-color: var(--accent); }
 .toolbar label { font-size: 11px; color: var(--text-dim); }
+input.input-error { border-color: var(--danger) !important; background: rgba(244,71,71,0.08); }
 
 /* ── Hex Editor ───────────────────────────────── */
 

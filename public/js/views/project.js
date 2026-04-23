@@ -472,15 +472,31 @@ export async function renderProject(container, { projectId, onBack }) {
 
   function gotoAddress() {
     if (!hexEditor) return;
-    const raw = document.getElementById('goto-addr')?.value.trim();
+    const input = document.getElementById('goto-addr');
+    const raw = input?.value.trim();
     if (!raw) return;
-    const addr = parseInt(raw, 16);
-    if (!isNaN(addr)) {
-      // The input uses whatever address system the hex editor displays, so
-      // subtract the display base to get a file offset.
-      const fileOff = (addr - (hexEditor.displayBase || 0)) >>> 0;
-      hexEditor.scrollToOffset(fileOff);
+    // Accept "0x..." or "..." but refuse anything outside [0-9a-f]. parseInt
+    // is too tolerant — "123g" returns 0x123 silently, confusing the user.
+    const normalized = raw.replace(/^0x/i, '');
+    const valid = /^[0-9a-fA-F]+$/.test(normalized);
+    const addr = valid ? parseInt(normalized, 16) : NaN;
+    if (!valid || isNaN(addr)) {
+      input.classList.add('input-error');
+      setStatus(`Adresse invalide : "${raw}" (attendu : hex, ex: 0x1E9DD4)`);
+      input.addEventListener('input', () => input.classList.remove('input-error'), { once: true });
+      return;
     }
+    input.classList.remove('input-error');
+    const fileOff = (addr - (hexEditor.displayBase || 0)) >>> 0;
+    const romLen = hexEditor.data?.length || 0;
+    if (romLen && fileOff >= romLen) {
+      input.classList.add('input-error');
+      setStatus(`Adresse 0x${addr.toString(16).toUpperCase()} hors ROM (taille : ${romLen} octets)`);
+      input.addEventListener('input', () => input.classList.remove('input-error'), { once: true });
+      return;
+    }
+    hexEditor.scrollToOffset(fileOff);
+    setStatus(`Goto 0x${addr.toString(16).toUpperCase()}`);
   }
 
   // ── Param Panel ─────────────────────────────────────────────────────────────
