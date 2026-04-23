@@ -31,6 +31,12 @@ pour toute la partie versionnement / comparaison / variantes.
 - **Navigateur de paramètres** — recherche texte, filtres VALUE / CURVE / MAP / VAL_BLK, scroll infini
 
 ### Modifications automatiques (EDC16C34)
+- **Templates véhicule** — presets one-click par famille de voiture (PSA 1.6 HDi 110 Stage 1 Safe,
+  Stage 1 Sport + Pop&Bang, Dépollution OFF). Un seul bouton applique Stage 1 + Pop&Bang + auto-mods
+  au choix du preset. Extensible : nouvelle entrée dans `src/vehicle-templates.js`.
+
+  ![vehicle templates](docs/screenshots/vehicle-templates.png)
+
 - **Stage 1** — 5 cartes (accélérateur, couple, rail pressure, limiteur couple) avec % ajustable par carte
 - **Pop & Bang** — seuil RPM + quantité d'injection en overrun
 - **DPF/FAP OFF**, **EGR OFF**, **Swirl OFF**, **Speed limiter OFF** — recherche signature + patch en 1 clic

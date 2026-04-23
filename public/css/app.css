@@ -255,6 +255,8 @@ body {
 .am-desc { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; }
 .am-note { font-size: 11px; color: var(--warn); margin-bottom: 6px; }
 .am-actions { display: flex; gap: 6px; }
+.am-template { border-left: 3px solid var(--accent); }
+.am-tag { display: inline-block; font-size: 10px; padding: 1px 6px; margin-left: 4px; background: var(--bg2); color: var(--text-dim); border-radius: 8px; }
 
 .map-content {
   display: flex;

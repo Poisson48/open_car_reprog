@@ -108,6 +108,81 @@ export class AutoMods {
 
     this._scan();
     this._bindButtons();
+    this._loadTemplates();
+  }
+
+  async _loadTemplates() {
+    const container = this._el?.querySelector('#am-templates');
+    if (!container) return;
+    try {
+      const res = await fetch(`/api/projects/${this.projectId}/templates`);
+      const templates = await res.json();
+      if (!Array.isArray(templates) || !templates.length) {
+        container.innerHTML = `<div style="font-size:11px;color:var(--text-dim);padding:6px 0">Aucun template disponible pour ce calculateur.</div>`;
+        return;
+      }
+      container.innerHTML = templates.map(t => {
+        const tags = [];
+        if (t.hasStage1) tags.push('Stage 1');
+        if (t.hasPopbang) tags.push('Pop&Bang');
+        if (t.autoModCount) tags.push(`${t.autoModCount} auto-mod${t.autoModCount > 1 ? 's' : ''}`);
+        return `
+        <div class="am-item am-template" data-tid="${t.id}">
+          <div class="am-item-header">
+            <span class="am-name">${t.name}</span>
+            <span class="am-status" id="am-tpl-status-${t.id}">${tags.map(x => `<span class="am-tag">${x}</span>`).join('')}</span>
+          </div>
+          <div class="am-desc">${t.description}</div>
+          ${t.vehicles ? `<div class="am-note">🚗 ${t.vehicles}</div>` : ''}
+          <div class="am-actions">
+            <button class="btn btn-sm btn-primary am-tpl-apply" data-tid="${t.id}">Appliquer ce template</button>
+          </div>
+        </div>
+        `;
+      }).join('');
+
+      for (const btn of container.querySelectorAll('.am-tpl-apply')) {
+        btn.addEventListener('click', () => this._applyTemplate(btn.getAttribute('data-tid'), btn));
+      }
+    } catch (e) {
+      container.innerHTML = `<div style="font-size:11px;color:var(--danger)">Erreur chargement templates: ${e.message}</div>`;
+    }
+  }
+
+  async _applyTemplate(tid, btn) {
+    if (!confirm('Appliquer ce template ? Les cartographies seront modifiées. Il est recommandé de faire un commit git avant.')) return;
+    btn.disabled = true;
+    const prevText = btn.textContent;
+    btn.textContent = 'Application…';
+    try {
+      const res = await fetch(`/api/projects/${this.projectId}/apply-template/${tid}`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'apply failed');
+
+      const romRes = await fetch(`/api/projects/${this.projectId}/rom`);
+      const romBuf = await romRes.arrayBuffer();
+      this.romData.set(new Uint8Array(romBuf));
+
+      const parts = [];
+      if (data.stage1?.length) parts.push(`${data.stage1.length} map${data.stage1.length > 1 ? 's' : ''}`);
+      if (data.popbang) parts.push(`popbang ${data.popbang.rpm}tr/min`);
+      if (data.autoMods?.length) parts.push(`${data.autoMods.filter(m => !m.error).length} auto-mod${data.autoMods.length > 1 ? 's' : ''}`);
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-success');
+      btn.textContent = `✓ Appliqué (${parts.join(', ') || 'aucun changement'})`;
+
+      const statusEl = this._el.querySelector(`#am-tpl-status-${tid}`);
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--accent2)">✓ Appliqué</span>';
+
+      if (this.onBytesChange) this.onBytesChange(0, this.romData);
+
+      // Refresh the rest of the modal since applied state of underlying mods has changed
+      this._scan();
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = prevText;
+      alert('Erreur template: ' + e.message);
+    }
   }
 
   _close() {
@@ -144,7 +219,13 @@ export class AutoMods {
           <h2 style="flex:1">Modifications automatiques — ${this.ecu.toUpperCase()}</h2>
           <button class="btn btn-sm" id="am-close">✕</button>
         </div>
-        <div style="overflow-y:auto;flex:1">${sections}</div>
+        <div style="overflow-y:auto;flex:1">
+          <div class="am-section">
+            <div class="am-cat">🚗 Templates véhicule</div>
+            <div id="am-templates"><div style="font-size:11px;color:var(--text-dim);padding:6px 0">Chargement…</div></div>
+          </div>
+          ${sections}
+        </div>
         <div style="margin-top:12px;font-size:11px;color:var(--text-dim)">
           ⚠ Faites un commit git avant d'appliquer des modifications. La ROM originale est toujours disponible dans <code>rom.original.bin</code>.
         </div>

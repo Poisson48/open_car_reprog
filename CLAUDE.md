@@ -24,6 +24,7 @@ ouvre http://localhost:3000, prends des screenshots, clique, scrolle.
 server.js                   Express REST API + point d'entrée
 src/
   ecu-catalog.js            Registre de 13 ECUs (EDC16/EDC17/ME7/MED17)
+  vehicle-templates.js      Presets one-click par famille véhicule (Stage 1 Safe / Sport / Dépollution)
   project-manager.js        Projets sur filesystem (projects/<uuid>/)
   git-manager.js            Git par projet : branches, log avec parents+refs, diff binaire, WIP auto-commit au switch
   a2l-parser.js             Parser ASAP2 récursif → 6638 caractéristiques EDC16C34
@@ -100,6 +101,9 @@ docs/
 | POST | /api/projects/:id/import-winols | Import WinOLS (.ols/.zip/hex/bin) |
 | POST | /api/projects/:id/stage1 | Stage 1 auto (body: { pcts: { MapName: % } }) |
 | POST | /api/projects/:id/popbang | Pop & bang (body: { rpm, fuelQty }) |
+| GET | /api/templates | Liste tous les templates véhicule |
+| GET | /api/projects/:id/templates | Templates compatibles avec l'ECU du projet |
+| POST | /api/projects/:id/apply-template/:tid | Applique un template (Stage 1 + Pop&Bang + auto-mods) en un call |
 
 ## Format ROM — Kf_Xs16_Ys16_Ws16 (Bosch DAMOS)
 
@@ -142,6 +146,20 @@ Cache auto dans `ressources/edc16c34/damos.cache.json` (généré au 1er démarr
 
 Pour ajouter un ECU : remplir son entrée dans `src/ecu-catalog.js`
 (stage1Maps + popbangParams + autoModPatterns avec les adresses confirmées).
+
+## Templates véhicule — `src/vehicle-templates.js`
+
+Presets « one-click » par famille de voiture qui bundlent :
+- un Stage 1 (pourcentages par carte, réutilise les adresses de `ecu-catalog.stage1Maps`),
+- optionnellement un Pop & Bang (RPM + qté, réutilise `popbangParams`),
+- optionnellement une liste d'ids `autoMods` qui résolvent contre `autoModPatterns` / `autoModAddresses`.
+
+Livrés pour edc16c34 (PSA 1.6 HDi 110) : `psa_16hdi_110_stage1_safe`,
+`psa_16hdi_110_stage1_sport` (Stage 1 + popbang), `psa_16hdi_110_depollution_off`
+(DPF + DTC DPF + EGR). Exposés dans le modal Auto-mods en haut, section « 🚗 Templates véhicule ».
+
+Pour en ajouter : nouvelle entrée dans `VEHICLE_TEMPLATES` avec `appliesTo`,
+`stage1.pcts`, `popbang`, `autoMods`. Le serveur applique atomiquement (load ROM → patch Stage 1 → patch popbang → patch auto-mods → write).
 
 ## Hex editor — virtual scroll
 

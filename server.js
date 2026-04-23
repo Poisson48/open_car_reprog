@@ -9,6 +9,7 @@ const A2lParser = require('./src/a2l-parser');
 const WinolsParser = require('./src/winols-parser');
 const { applyPctToMap, readValue, writeValue } = require('./src/rom-patcher');
 const { getEcu, listEcus } = require('./src/ecu-catalog');
+const { listTemplates, getTemplate, listTemplatesForEcu } = require('./src/vehicle-templates');
 const { mapsChanged } = require('./src/map-differ');
 
 const app = express();
@@ -619,6 +620,99 @@ app.post('/api/projects/:id/popbang', async (req, res) => {
 
     fs.writeFileSync(romPath, rom);
     res.json({ ok: true, rpm: clampedRpm, fuelQty: clampedQty });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Vehicle templates — presets Stage 1 / Pop&Bang / dépollution par famille ──
+
+function findPatternInBuf(buf, pattern) {
+  const last = buf.length - pattern.length;
+  outer: for (let i = 0; i <= last; i++) {
+    for (let j = 0; j < pattern.length; j++) {
+      if (buf[i + j] !== pattern[j]) continue outer;
+    }
+    return i;
+  }
+  return -1;
+}
+
+async function applyTemplateToProject(proj, template) {
+  const ecuDef = getEcu(proj.ecu);
+  const romPath = pm.getRomPath(proj.id);
+  const rom = Buffer.from(fs.readFileSync(romPath));
+  const u8 = new Uint8Array(rom.buffer, rom.byteOffset, rom.byteLength);
+
+  const result = { stage1: [], popbang: null, autoMods: [] };
+
+  if (template.stage1 && ecuDef?.stage1Maps) {
+    for (const m of ecuDef.stage1Maps) {
+      const pct = template.stage1.pcts?.[m.name];
+      if (pct === undefined || pct === 0) continue;
+      try {
+        const changed = applyPctToMap(u8, m.address, pct);
+        result.stage1.push({ map: m.name, pct, changed: changed.length });
+      } catch (e) {
+        result.stage1.push({ map: m.name, pct, error: e.message });
+      }
+    }
+  }
+
+  if (template.popbang && ecuDef?.popbangParams) {
+    const { rpm, fuelQty } = template.popbang;
+    const p = ecuDef.popbangParams;
+    const clampedRpm = Math.max(p.nOvrRun.min, Math.min(p.nOvrRun.max, Math.round(rpm)));
+    const clampedQty = Math.max(p.qOvrRun.min, Math.min(p.qOvrRun.max, Math.round(fuelQty)));
+    writeValue(u8, p.nOvrRun.address, clampedRpm);
+    writeValue(u8, p.qOvrRun.address, clampedQty);
+    result.popbang = { rpm: clampedRpm, fuelQty: clampedQty };
+  }
+
+  for (const modId of (template.autoMods || [])) {
+    const pat = (ecuDef?.autoModPatterns || []).find(p => p.id === modId);
+    const addr = (ecuDef?.autoModAddresses || []).find(a => a.id === modId);
+    if (pat) {
+      const offset = findPatternInBuf(u8, pat.search);
+      if (offset < 0) { result.autoMods.push({ id: modId, error: 'signature not found' }); continue; }
+      for (let i = 0; i < pat.replace.length; i++) u8[offset + i] = pat.replace[i];
+      result.autoMods.push({ id: modId, type: 'pattern', offset, bytes: pat.replace.length });
+    } else if (addr) {
+      for (let i = 0; i < addr.bytes.length; i++) u8[addr.address + i] = addr.bytes[i];
+      result.autoMods.push({ id: modId, type: 'address', offset: addr.address, bytes: addr.bytes.length });
+    } else {
+      result.autoMods.push({ id: modId, error: 'unknown mod id for this ECU' });
+    }
+  }
+
+  fs.writeFileSync(romPath, rom);
+  return result;
+}
+
+app.get('/api/templates', (req, res) => {
+  res.json(listTemplates());
+});
+
+app.get('/api/projects/:id/templates', async (req, res) => {
+  const proj = await pm.get(req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Project not found' });
+  res.json(listTemplatesForEcu(proj.ecu));
+});
+
+app.post('/api/projects/:id/apply-template/:tid', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.status(400).json({ error: 'No ROM imported' });
+
+    const template = getTemplate(req.params.tid);
+    if (!template) return res.status(404).json({ error: 'Unknown template' });
+    if (!template.appliesTo.includes(proj.ecu)) {
+      return res.status(400).json({ error: `Template "${template.id}" incompatible avec l'ECU ${proj.ecu}` });
+    }
+
+    const result = await applyTemplateToProject(proj, template);
+    res.json({ ok: true, template: template.id, ...result });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
