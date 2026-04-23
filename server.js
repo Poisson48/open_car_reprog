@@ -578,16 +578,46 @@ app.post('/api/projects/:id/stage1', async (req, res) => {
     const rom = Buffer.from(fs.readFileSync(romPath));
     const u8 = new Uint8Array(rom.buffer, rom.byteOffset, rom.byteLength);
 
+    // Résolution des adresses : l'A2L du projet (custom uploadé OU catalog
+    // ECU) a priorité sur les adresses hardcodées du ecu-catalog. Ça rend
+    // Stage 1 indépendant du firmware spécifique dès que l'utilisateur
+    // uploade un damos qui matche sa ROM.
+    const a2l = await getA2lForProject(proj);
+    const a2lByName = new Map();
+    if (a2l?.characteristics) {
+      for (const c of a2l.characteristics) a2lByName.set(c.name, c);
+    }
+
     const result = [];
     for (const m of maps) {
       const pct = pcts[m.name] !== undefined ? Number(pcts[m.name]) : m.defaultPct;
       if (pct === 0) continue;
+      const a2lEntry = a2lByName.get(m.name);
+      const addr = a2lEntry?.address ?? m.address;
+      const source = a2lEntry ? 'a2l' : 'catalog';
       try {
-        const changed = applyPctToMap(u8, m.address, pct);
-        result.push({ map: m.name, pct, changed: changed.length });
+        const changed = applyPctToMap(u8, addr, pct);
+        result.push({ map: m.name, pct, address: addr, addressSource: source, changed: changed.length });
       } catch (e) {
-        result.push({ map: m.name, error: e.message });
+        result.push({ map: m.name, pct, address: addr, addressSource: source, error: e.message });
       }
+    }
+
+    // Si toutes les cartes ont échoué (ou aucune n'a changé d'octet), c'est
+    // que le catalog ne correspond pas au firmware de cette ROM — on ne
+    // doit PAS écrire le fichier (il n'aurait rien changé de toute façon)
+    // et on retourne 400 pour que le frontend puisse afficher une vraie
+    // erreur au lieu d'un silent success.
+    const totalChanged = result.reduce((s, r) => s + (r.changed || 0), 0);
+    const allFailed = result.length > 0 && result.every(r => r.error);
+    if (allFailed || totalChanged === 0) {
+      return res.status(400).json({
+        ok: false,
+        maps: result,
+        error: allFailed
+          ? 'Aucune carte Stage 1 n\'a pu être lue dans cette ROM — le catalog ne correspond pas au firmware. Uploader un A2L custom pour votre ROM via 📑 A2L.'
+          : 'Aucun octet n\'a changé (pct = 0 partout ?). Stage 1 non appliqué.',
+      });
     }
 
     fs.writeFileSync(romPath, rom);

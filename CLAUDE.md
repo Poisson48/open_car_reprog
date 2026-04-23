@@ -129,23 +129,42 @@ Fonctions utilitaires dans `src/rom-patcher.js` :
 **A2L** : 6638 caractéristiques parsées, types VAL_BLK / CURVE / MAP / VALUE.
 Cache auto dans `ressources/edc16c34/damos.cache.json` (généré au 1er démarrage).
 
-**Stage 1** (adresses confirmées ROM + A2L) :
-| Map | Adresse | % défaut |
-|-----|---------|----------|
-| AccPed_trqEngHiGear_MAP | 0x16D6C4 | +15% |
-| AccPed_trqEngLoGear_MAP | 0x16DA04 | +15% |
-| FMTC_trq2qBas_MAP | 0x1760A4 | +12% |
-| Rail_pSetPointBase_MAP | 0x17A4A4 | +10% |
-| EngPrt_trqAPSLim_MAP | 0x1758E4 | +25% |
+**Stage 1** (adresses du damos.a2l, validées sur `ori.BIN` — voir
+`tests/ecu-catalog-edc16c34.test.js` pour le garde-fou CI) :
+| Map | Adresse | Dims | % défaut |
+|-----|---------|------|----------|
+| AccPed_trqEngHiGear_MAP | 0x1C1448 | 16×10 | +15% |
+| AccPed_trqEngLoGear_MAP | 0x1C168C | 16×10 | +15% |
+| FMTC_trq2qBas_MAP | 0x1C9AAA | 16×16 | +12% |
+| Rail_pSetPointBase_MAP | 0x1E726C | 16×16 | +10% |
+| EngPrt_trqAPSLim_MAP | 0x1C8838 | 8×12 | +25% |
+
+**Historique** : les 5 adresses précédentes (0x16D6C4 etc.) étaient fausses —
+elles pointaient sur du padding `FF FF FF FF` dans toutes les ROMs. Stage 1
+retournait silencieusement 200 OK avec 0 octet changé. Fixé, endpoint
+`/stage1` retourne maintenant HTTP 400 si 0 carte ne matche. Adresses A2L
+confirmées via forums (ecuedit t365, ecuconnections t12953, mhhauto).
+
+**Résolution dynamique** : `/stage1` préfère l'adresse A2L du projet (custom
+uploadé ou catalog ECU) sur l'adresse du catalog JS. Permet de faire marcher
+Stage 1 sur un firmware différent en uploadant le damos approprié. Le champ
+`addressSource: 'a2l' | 'catalog'` dans la réponse indique la source.
 
 **Pop & Bang** :
 | Paramètre | Adresse | Valeur stock | Rôle |
 |-----------|---------|--------------|------|
 | AirCtl_nOvrRun_C | 0x1C4046 | 1000 tr/min | Seuil RPM départ overrun |
-| AirCtl_qOvrRun_C | 0x1C40B4 | 0 (raw) | Quantité carburant overrun |
+| AirCtl_qOvrRun_C | 0x1C40B4 | 50 (raw) | Quantité carburant overrun |
 
-**Auto-mods pattern** (DPF OFF) : recherche signature 17 octets en O(n).
-**Auto-mods adresse** : DPF DTC @ 0x1E9DD4, EGR OFF @ 0x1C4C4E.
+**Auto-mods** :
+- DPF OFF (pattern) : signature 17 octets en O(n). Non trouvée dans ori.BIN
+  ni 9663944680.Bin — cette signature est firmware-spécifique.
+- EGR OFF (adresse) : `AirCtl_nMin_C @ 0x1C41B8` patché à `0x1F40` (8000 rpm)
+  → seuil RPM coupure EGR au-dessus de la zone d'utilisation normale.
+  Méthode forum ecuedit/mhhauto, confirmée par A2L damos. L'ancienne
+  adresse 0x1C4C4E n'avait jamais été validée.
+- DPF DTC : `@ 0x1E9DD4` à `FF FF` — adresse non confirmée (donne FF FF sur
+  ori.BIN déjà, 00 00 sur Berlingo). À revalider vs DFC_DFCCDfp_PFlt*.
 
 Pour ajouter un ECU : remplir son entrée dans `src/ecu-catalog.js`
 (stage1Maps + popbangParams + autoModPatterns avec les adresses confirmées).

@@ -11,18 +11,28 @@ const ECU_CATALOG = [
     fuel: 'diesel',
     application: 'PSA 1.6 HDi 110cv (DV6TED4) — 206 / 307 / 308 / Berlingo / C3 / C4',
     a2l: 'ressources/edc16c34/damos.a2l',
+    // Adresses confirmées par cross-check A2L (damos.a2l) ↔ ori.BIN ↔
+    // forums ecuedit / ecuconnections / mhhauto. Les adresses précédentes
+    // (0x16D6C4 etc.) étaient fausses — elles pointaient sur du padding
+    // (FF FF FF FF) dans toutes les ROMs disponibles, faisant silencieusement
+    // échouer Stage 1 depuis la création du catalog. Voir
+    // tests/ecu-catalog-edc16c34.test.js pour le garde-fou.
     stage1Maps: [
-      { name: 'AccPed_trqEngHiGear_MAP', address: 0x16D6C4, defaultPct: 15, label: 'Couple pédale Hi gear' },
-      { name: 'AccPed_trqEngLoGear_MAP', address: 0x16DA04, defaultPct: 15, label: 'Couple pédale Lo gear' },
-      { name: 'FMTC_trq2qBas_MAP',      address: 0x1760A4, defaultPct: 12, label: 'Couple → Injection (FMTC)' },
-      { name: 'Rail_pSetPointBase_MAP',  address: 0x17A4A4, defaultPct: 10, label: 'Pression rail setpoint' },
-      { name: 'EngPrt_trqAPSLim_MAP',   address: 0x1758E4, defaultPct: 25, label: 'Limite protection moteur' },
+      { name: 'AccPed_trqEngHiGear_MAP', address: 0x1C1448, defaultPct: 15, label: 'Couple pédale Hi gear' },
+      { name: 'AccPed_trqEngLoGear_MAP', address: 0x1C168C, defaultPct: 15, label: 'Couple pédale Lo gear' },
+      { name: 'FMTC_trq2qBas_MAP',       address: 0x1C9AAA, defaultPct: 12, label: 'Couple → Injection (FMTC)' },
+      { name: 'Rail_pSetPointBase_MAP',  address: 0x1E726C, defaultPct: 10, label: 'Pression rail setpoint' },
+      { name: 'EngPrt_trqAPSLim_MAP',    address: 0x1C8838, defaultPct: 25, label: 'Limite protection moteur' },
     ],
     popbangParams: {
       nOvrRun: { address: 0x1C4046, min: 500,  max: 5500, label: 'RPM départ overrun' },
       qOvrRun: { address: 0x1C40B4, min: 0,    max: 100,  label: 'Qté carburant (brut ×0.1 mg)' },
     },
     autoModPatterns: [
+      // DPF OFF — signature 17 octets. Cette signature est documentée pour
+      // certains firmwares EDC16C34 mais pas tous (non trouvée dans ori.BIN
+      // ni 9663944680.Bin). L'app fera simplement "not found" à l'exécution
+      // plutôt que de patcher quelque chose de faux.
       {
         id: 'dpf_off',
         search:  [0x7F,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x01,0x01,0x00,0x0C,0x3B,0x0D,0x03],
@@ -31,8 +41,16 @@ const ECU_CATALOG = [
       }
     ],
     autoModAddresses: [
+      // EGR OFF — méthode forum validée (ecuedit/mhhauto) : relever
+      // AirCtl_nMin_C (seuil RPM coupure EGR) à 8000 rpm pour qu'il ne
+      // s'active jamais en roulage. Adresse confirmée par l'A2L damos.
+      // L'ancienne adresse 0x1C4C4E n'a jamais été validée et écrivait
+      // dans une zone non-EGR.
+      { id: 'egr_off',     address: 0x1C41B8, bytes: [0x1F,0x40], restore: null, note: 'AirCtl_nMin_C → 8000 rpm (forum ecuedit/mhhauto)' },
+      // DPF DTC — adresse non confirmée (donne FF FF sur ori.BIN et 00 00
+      // sur 9663944680.Bin). À retrouver via le damos DFC_DFCCDfp_PFlt* ou
+      // forum spécifique.
       { id: 'dpf_dtc_off', address: 0x1E9DD4, bytes: [0xFF,0xFF], restore: [0x00,0x01] },
-      { id: 'egr_off',     address: 0x1C4C4E, bytes: [0x00,0x00], restore: null },
     ],
   },
   {
