@@ -28,6 +28,13 @@ export class MapFinder {
           Les candidats connus dans l'A2L sont marqués <span style="color:var(--accent2)">✓</span>.
         </div>
         <div id="mf-status" style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Scan en cours…</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+          <input type="search" id="mf-filter" placeholder="Filtrer : nom A2L, adresse hex, dimensions (ex: 16x16)…" style="flex:1;padding:5px 8px;background:var(--panel);border:1px solid var(--border);color:var(--text);font-size:12px">
+          <label style="font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="mf-hors-a2l-only"> hors A2L seulement
+          </label>
+          <span id="mf-filter-count" style="font-size:11px;color:var(--text-dim);min-width:70px;text-align:right"></span>
+        </div>
         <div id="mf-list" style="overflow-y:auto;flex:1;border:1px solid var(--border)"></div>
       </div>
     `;
@@ -47,15 +54,44 @@ export class MapFinder {
       this._el.querySelector('#mf-status').innerHTML =
         `<strong>${data.count}</strong> candidat${data.count > 1 ? 's' : ''} · scan <strong>${data.scanMs} ms</strong> (total ${roundTrip} ms) · ROM ${(data.romSize / 1024).toFixed(0)} Ko`;
 
-      this._renderList(data.maps);
+      this._allMaps = data.maps;
+      this._el.querySelector('#mf-filter').addEventListener('input', () => this._applyFilter());
+      this._el.querySelector('#mf-hors-a2l-only').addEventListener('change', () => this._applyFilter());
+      this._applyFilter();
     } catch (e) {
       this._el.querySelector('#mf-status').innerHTML = `<span style="color:var(--danger)">Erreur : ${e.message}</span>`;
     }
   }
 
+  _applyFilter() {
+    const q = this._el.querySelector('#mf-filter').value.trim().toLowerCase();
+    const horsA2lOnly = this._el.querySelector('#mf-hors-a2l-only').checked;
+    // Parse "16x16" / "16×16" dim patterns
+    const dimMatch = q.match(/^(\d+)\s*[x×]\s*(\d+)$/);
+    const filtered = (this._allMaps || []).filter(m => {
+      if (horsA2lOnly && m.knownName) return false;
+      if (!q) return true;
+      if (dimMatch) return m.nx === +dimMatch[1] && m.ny === +dimMatch[2];
+      if (m.knownName?.toLowerCase().includes(q)) return true;
+      const hex = m.address.toString(16).toLowerCase();
+      const hexPadded = hex.padStart(6, '0');
+      if (hex.includes(q.replace(/^0x/, '')) || hexPadded.includes(q.replace(/^0x/, ''))) return true;
+      if (String(m.address).includes(q)) return true;
+      return false;
+    });
+    const countEl = this._el.querySelector('#mf-filter-count');
+    if (countEl) countEl.textContent = (q || horsA2lOnly) ? `${filtered.length}/${this._allMaps?.length || 0}` : `${this._allMaps?.length || 0}`;
+    this._renderList(filtered);
+  }
+
   _renderList(maps) {
     const listEl = this._el.querySelector('#mf-list');
     if (!maps.length) {
+      // Distinguish "scan returned 0" vs "filter returned 0"
+      if (this._allMaps && this._allMaps.length > 0) {
+        listEl.innerHTML = `<div style="padding:24px;color:var(--text-dim);font-size:12px">Aucun candidat ne correspond au filtre.</div>`;
+        return;
+      }
       const scan = this._lastScan?.data;
       const romKo = scan ? (scan.romSize / 1024).toFixed(0) : '?';
       const scanMs = scan ? scan.scanMs : '?';
