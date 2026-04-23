@@ -1150,12 +1150,22 @@ export class MapEditor {
   _applyPct(pct) {
     if (!this._selection.size || !this._grid) return;
     const factor = 1 + pct / 100;
+    const dir = pct >= 0 ? 1 : -1;
+    const p = this.param;
     const changed = [];
     for (const key of this._selection) {
       const [xi, yi] = key.split(',').map(Number);
       const row = this._grid[yi] || this._grid[0];
       const oldPhys = row[xi];
-      const newPhys = oldPhys * factor;
+      let newPhys = oldPhys * factor;
+      // Raw arrondit parfois au même entier (ex: phys=1, +5% → 1.05 → raw=1).
+      // On force alors un bump de 1 unité raw dans le sens voulu, sauf sur
+      // les cellules à 0 (le tuner ne s'attend pas à voir 0 → 1).
+      if (oldPhys !== 0) {
+        const oldRaw = Math.round(toRaw(oldPhys, p));
+        const newRaw = Math.round(toRaw(newPhys, p));
+        if (newRaw === oldRaw) newPhys = toPhys(oldRaw + dir, p);
+      }
       row[xi] = newPhys;
       changed.push({ xi, yi, phys: newPhys });
     }
