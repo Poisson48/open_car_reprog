@@ -1153,6 +1153,7 @@ export class MapEditor {
     const dir = pct >= 0 ? 1 : -1;
     const p = this.param;
     const changed = [];
+    let nbZeroSkipped = 0;
     for (const key of this._selection) {
       const [xi, yi] = key.split(',').map(Number);
       const row = this._grid[yi] || this._grid[0];
@@ -1165,11 +1166,33 @@ export class MapEditor {
         const oldRaw = Math.round(toRaw(oldPhys, p));
         const newRaw = Math.round(toRaw(newPhys, p));
         if (newRaw === oldRaw) newPhys = toPhys(oldRaw + dir, p);
+      } else {
+        nbZeroSkipped++;
       }
       row[xi] = newPhys;
       changed.push({ xi, yi, phys: newPhys });
     }
     this._flushChanges(changed);
+    if (nbZeroSkipped === this._selection.size) {
+      this._flashSelCount(`⚠ Toutes les cellules sélectionnées sont à 0 — aucun effet (${nbZeroSkipped} cellule${nbZeroSkipped > 1 ? 's' : ''})`);
+    } else if (nbZeroSkipped > 0) {
+      this._flashSelCount(`${this._selection.size - nbZeroSkipped} cellule(s) modifiée(s), ${nbZeroSkipped} à 0 ignorée(s)`);
+    }
+  }
+
+  _flashSelCount(text) {
+    const el = this.el?.querySelector('#map-sel-count');
+    if (!el) return;
+    const old = el.textContent;
+    el.textContent = text;
+    el.style.color = 'var(--warn)';
+    clearTimeout(this._flashTimer);
+    this._flashTimer = setTimeout(() => {
+      if (el.textContent === text) {
+        el.textContent = old;
+        el.style.color = '';
+      }
+    }, 2500);
   }
 
   _applySet(physVal) {
