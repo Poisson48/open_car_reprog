@@ -1,6 +1,8 @@
 // Map/Curve/Value editor
 // Features: heatmap 2D, range selection, ±% adjustments, physical conversion
 
+import { toDisplay, fromDisplay, displayUnit } from './units.js';
+
 const DATA_SIZES = { UBYTE:1, SBYTE:1, UWORD:2, SWORD:2, ULONG:4, SLONG:4, FLOAT32_IEEE:4, FLOAT64_IEEE:8 };
 
 function readValue(buf, offset, dataType, bigEndian) {
@@ -93,11 +95,12 @@ function textColorForBg(t) {
 }
 
 export class MapEditor {
-  constructor(el, { onBytesChange, getNote, setNote }) {
+  constructor(el, { onBytesChange, getNote, setNote, unitsPrefs }) {
     this.el = el;
     this.onBytesChange = onBytesChange;
     this.getNote = getNote; // (mapName) => string|undefined
     this.setNote = setNote; // (mapName, text) => Promise
+    this.unitsPrefs = unitsPrefs || { torque: 'Nm', temp: 'C' };
     this.param = null;
     this.romData = null;
     this._chart = null;
@@ -453,7 +456,7 @@ export class MapEditor {
       <div class="map-toolbar">
         <span class="map-name">${p.name}</span>
         <span class="map-desc">${p.description || ''}</span>
-        <span style="font-size:11px;color:var(--text-dim)">${p.type} · ${p.dataType || ''} · ${p.unit || ''} · 0x${p.address.toString(16).toUpperCase()}</span>
+        <span style="font-size:11px;color:var(--text-dim)">${p.type} · ${p.dataType || ''} · ${displayUnit(p.unit, this.unitsPrefs) || ''} · 0x${p.address.toString(16).toUpperCase()}</span>
         ${p.type === 'MAP' ? `<button class="btn btn-sm" id="map-toggle-3d" style="margin-left:4px" title="Vue 3D / 2D">${this._view3D ? '▦ 2D' : '🗻 3D'}</button>
         <button class="btn btn-sm map-3d-only" id="map-3d-reset" title="Réinitialiser la vue" style="display:${this._view3D ? '' : 'none'}">⟳</button>
         <button class="btn btn-sm map-3d-only" id="map-3d-mode" title="Mode 3D : Valeur / Delta / Split (2 surfaces côte à côte)" style="display:${this._view3D && this.compareRom ? '' : 'none'}">${this._view3DMode === 'value' ? 'Δ Delta' : this._view3DMode === 'delta' ? '⇄ Split' : '🎨 Valeur'}</button>` : ''}
@@ -574,7 +577,7 @@ export class MapEditor {
           <tr>
             <th>Valeur brute (HEX)</th>
             <th>Valeur brute (DEC)</th>
-            <th>Valeur physique (${p.unit || '—'})</th>
+            <th>Valeur physique (${displayUnit(p.unit, this.unitsPrefs) || '—'})</th>
           </tr>
           <tr>
             <td><input id="val-raw-hex" value="${raw.toString(16).toUpperCase().padStart(4,'0')}"></td>
@@ -682,7 +685,8 @@ export class MapEditor {
       const t = (v - min) / range;
       const bg = heatColor(t);
       const fg = textColorForBg(t);
-      return `<td style="background:${bg}"><input data-xi="${i}" data-yi="0" value="${v.toFixed(2)}" style="color:${fg}"></td>`;
+      const dv = toDisplay(v, p.unit, this.unitsPrefs);
+      return `<td style="background:${bg}"><input data-xi="${i}" data-yi="0" value="${dv.toFixed(2)}" style="color:${fg}"></td>`;
     }).join('');
 
     wrap.innerHTML = `
@@ -805,7 +809,8 @@ export class MapEditor {
         const fg = textColorForBg(t);
         const key = `${xi},${yi}`;
         const selBorder = this._selection.has(key) ? 'outline:2px solid #fff;outline-offset:-2px;' : '';
-        return `<td style="background:${bg};${selBorder}"><input data-xi="${xi}" data-yi="${yi}" value="${v.toFixed(2)}" style="color:${fg}"></td>`;
+        const dv = toDisplay(v, p.unit, this.unitsPrefs);
+        return `<td style="background:${bg};${selBorder}"><input data-xi="${xi}" data-yi="${yi}" value="${dv.toFixed(2)}" style="color:${fg}"></td>`;
       }).join('');
       return `<tr><th class="map-slice-th" data-slice="row" data-idx="${yi}" title="Voir la ligne Y=${yv.toFixed(1)} en courbe" style="font-size:10px;color:var(--accent2)">${yv.toFixed(1)}</th>${cells}</tr>`;
     }).join('');
@@ -920,7 +925,10 @@ export class MapEditor {
       inp.addEventListener('change', e => {
         const xi = parseInt(e.target.dataset.xi);
         const yi = parseInt(e.target.dataset.yi);
-        const phys = parseFloat(e.target.value);
+        const display = parseFloat(e.target.value);
+        // Input is in the current display unit; convert back to A2L physical
+        // before writing to the ROM.
+        const phys = fromDisplay(display, p.unit, this.unitsPrefs);
         this._writeCell(xi, yi, phys, xCount, bigEndian, dataAddr, valSz, valDT, p);
         if (grid2d) {
           grid2d[yi][xi] = phys;
@@ -1258,6 +1266,17 @@ export class MapEditor {
     const all = grid.flat();
     const min = all.reduce((a, b) => a < b ? a : b, Infinity), max = all.reduce((a, b) => a > b ? a : b, -Infinity);
     return (v - min) / (max - min || 1);
+  }
+
+  // Called by the parent view when the user toggles units in the toolbar.
+  // We refresh the currently displayed map so all phys numbers + unit labels
+  // reflect the new preference.
+  setUnitsPrefs(prefs) {
+    this.unitsPrefs = prefs || { torque: 'Nm', temp: 'C' };
+    if (this.param && this.romData) {
+      const p = this.param;
+      this.show(p, this.romData, this.compareRom, this.compareLabel);
+    }
   }
 
   _refreshHeatmapColors(wrap, grid) {

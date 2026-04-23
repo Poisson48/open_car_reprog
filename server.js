@@ -109,13 +109,20 @@ app.get('/api/projects/:id', async (req, res) => {
 
 app.patch('/api/projects/:id', async (req, res) => {
   try {
-    const allowed = ['name', 'description', 'vehicle', 'immat', 'year', 'ecu', 'displayAddressBase'];
+    const allowed = ['name', 'description', 'vehicle', 'immat', 'year', 'ecu', 'displayAddressBase', 'units'];
     const updates = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)));
     if (updates.ecu && !getEcu(updates.ecu)) {
       return res.status(400).json({ error: `Unknown ECU: ${updates.ecu}` });
     }
     if (updates.displayAddressBase !== undefined) {
       updates.displayAddressBase = Number(updates.displayAddressBase) >>> 0;
+    }
+    if (updates.units !== undefined) {
+      const u = updates.units || {};
+      updates.units = {
+        torque: u.torque === 'lb_ft' ? 'lb_ft' : 'Nm',
+        temp: u.temp === 'F' ? 'F' : 'C'
+      };
     }
     const meta = await pm.update(req.params.id, updates);
     res.json(meta);

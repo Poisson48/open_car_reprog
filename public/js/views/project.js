@@ -50,6 +50,9 @@ export async function renderProject(container, { projectId, onBack }) {
           <input type="file" id="a2l-file-input" accept=".a2l,.A2L" style="display:none">
           <a class="btn btn-sm" id="btn-open-damos-dl" href="/api/projects/${projectId}/open-damos.a2l" download="open_damos_${project.ecu || 'ecu'}_${project.name?.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'project'}.a2l" title="Télécharger l'open_damos relocalisé pour cette ROM (A2L ASAP2 standard, utilisable dans WinOLS / TunerPro)">🧬 open_damos</a>
           <span id="damos-match-badge" title="Correspondance damos ↔ ROM" style="display:none"></span>
+          <button class="btn btn-sm" id="btn-units-toggle" title="Basculer les unités d'affichage (Nm ↔ lb·ft, °C ↔ °F). Les valeurs ROM restent dans les unités A2L.">
+            <span id="btn-units-label">Nm · °C</span>
+          </button>
           <span id="branch-switcher-slot"></span>
           <div style="flex:1"></div>
           ${!project.hasRom ? `
@@ -235,8 +238,10 @@ export async function renderProject(container, { projectId, onBack }) {
         if (trimmed) mapNotes[mapName] = text;
         else delete mapNotes[mapName];
         await api.setMapNote(projectId, mapName, text);
-      }
+      },
+      unitsPrefs: project.units || { torque: 'Nm', temp: 'C' }
     });
+    updateUnitsButton();
 
     // Any ROM reload starts from a clean slate for undo.
     resetUndo();
@@ -312,6 +317,10 @@ export async function renderProject(container, { projectId, onBack }) {
     });
   });
 
+  // Units toggle is visible even before a ROM is loaded.
+  updateUnitsButton();
+  document.getElementById('btn-units-toggle')?.addEventListener('click', toggleUnits);
+
   if (!project.hasRom) {
     const dz = document.getElementById('drop-zone');
     const fi = document.getElementById('rom-file-input');
@@ -334,9 +343,28 @@ export async function renderProject(container, { projectId, onBack }) {
 
   // ── Toolbar rebind (after ROM load) ─────────────────────────────────────────
 
+  function updateUnitsButton() {
+    const u = project.units || { torque: 'Nm', temp: 'C' };
+    const lbl = document.getElementById('btn-units-label');
+    if (lbl) lbl.textContent = `${u.torque === 'lb_ft' ? 'lb·ft' : 'Nm'} · ${u.temp === 'F' ? '°F' : '°C'}`;
+  }
+
+  async function toggleUnits() {
+    const cur = project.units || { torque: 'Nm', temp: 'C' };
+    const next = {
+      torque: cur.torque === 'Nm' ? 'lb_ft' : 'Nm',
+      temp: cur.temp === 'C' ? 'F' : 'C'
+    };
+    project.units = next;
+    updateUnitsButton();
+    if (mapEditor) mapEditor.setUnitsPrefs(next);
+    try { await api.updateProject(projectId, { units: next }); } catch {}
+  }
+
   function rebindToolbar() {
     document.getElementById('btn-goto')?.addEventListener('click', gotoAddress);
     document.getElementById('goto-addr')?.addEventListener('keydown', e => { if (e.key === 'Enter') gotoAddress(); });
+    document.getElementById('btn-units-toggle')?.addEventListener('click', toggleUnits);
     document.getElementById('btn-auto-mods')?.addEventListener('click', () => {
       if (!romData) return;
       const am = new AutoMods({
