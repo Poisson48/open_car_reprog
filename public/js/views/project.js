@@ -240,7 +240,16 @@ export async function renderProject(container, { projectId, onBack }) {
         else delete mapNotes[mapName];
         await api.setMapNote(projectId, mapName, text);
       },
-      unitsPrefs: project.units || { torque: 'Nm', temp: 'C' }
+      unitsPrefs: project.units || { torque: 'Nm', temp: 'C' },
+      // Load HEAD's parent as compareRom for "Δ vs parent" one-click delta view.
+      // Returns null when HEAD is the initial commit (no parent).
+      onLoadParentCompare: async () => {
+        const log = await api.gitLog(projectId).catch(() => []);
+        const parentHash = log[0]?.parents?.[0];
+        if (!parentHash) return null;
+        const buf = await api.getRom(projectId, parentHash);
+        return { buf: new Uint8Array(buf), label: `parent de HEAD (${parentHash.slice(0, 8)})` };
+      }
     });
     updateUnitsButton();
 

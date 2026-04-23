@@ -95,11 +95,12 @@ function textColorForBg(t) {
 }
 
 export class MapEditor {
-  constructor(el, { onBytesChange, getNote, setNote, unitsPrefs }) {
+  constructor(el, { onBytesChange, getNote, setNote, unitsPrefs, onLoadParentCompare }) {
     this.el = el;
     this.onBytesChange = onBytesChange;
     this.getNote = getNote; // (mapName) => string|undefined
     this.setNote = setNote; // (mapName, text) => Promise
+    this.onLoadParentCompare = onLoadParentCompare; // () => Promise<{buf, label}|null>
     this.unitsPrefs = unitsPrefs || { torque: 'Nm', temp: 'C' };
     this.param = null;
     this.romData = null;
@@ -459,6 +460,7 @@ export class MapEditor {
         <span style="font-size:11px;color:var(--text-dim)">${p.type} · ${p.dataType || ''} · ${displayUnit(p.unit, this.unitsPrefs) || ''} · 0x${p.address.toString(16).toUpperCase()}</span>
         ${p.type === 'MAP' ? `<button class="btn btn-sm" id="map-toggle-3d" style="margin-left:4px" title="Vue 3D / 2D">${this._view3D ? '▦ 2D' : '🗻 3D'}</button>
         <button class="btn btn-sm map-3d-only" id="map-3d-reset" title="Réinitialiser la vue" style="display:${this._view3D ? '' : 'none'}">⟳</button>
+        ${this.onLoadParentCompare ? `<button class="btn btn-sm" id="map-cmp-parent" title="Charger le commit parent de HEAD comme référence pour la comparaison" style="display:${this.compareRom ? 'none' : ''}">Δ vs parent</button>` : ''}
         <button class="btn btn-sm map-3d-only" id="map-3d-mode" title="Mode 3D : Valeur / Delta / Split (2 surfaces côte à côte)" style="display:${this._view3D && this.compareRom ? '' : 'none'}">${this._view3DMode === 'value' ? 'Δ Delta' : this._view3DMode === 'delta' ? '⇄ Split' : '🎨 Valeur'}</button>` : ''}
         <button class="btn btn-sm" id="map-close" style="margin-left:8px">✕</button>
       </div>
@@ -534,6 +536,21 @@ export class MapEditor {
       const next = { value: 'delta', delta: 'split', split: 'value' };
       this._view3DMode = next[this._view3DMode] || 'value';
       this._render();
+    });
+    this.el.querySelector('#map-cmp-parent')?.addEventListener('click', async () => {
+      if (!this.onLoadParentCompare) return;
+      try {
+        const parent = await this.onLoadParentCompare();
+        if (!parent) { alert('Pas de commit parent (HEAD initial ?)'); return; }
+        this.showCompare(this.param, this.romData, parent.buf, parent.label);
+        // Auto-switch to 3D delta for visual impact
+        this._view3D = true;
+        this._view3DMode = 'delta';
+        this._render();
+        queueMicrotask(() => this._applyCompareOverlay());
+      } catch (e) {
+        alert('Δ vs parent a échoué : ' + e.message);
+      }
     });
 
     // Selection bar buttons
@@ -1469,10 +1486,25 @@ export class MapEditor {
     const nx = grid[0]?.length || 0;
     if (!nx || !ny) return;
 
-    const allVals = grid.flat();
+    // Mode delta : hauteurs = (actuel - compareRom), couleurs divergentes
+    // (rouge = diminution, gris = inchangé, vert = augmentation). Une surface
+    // plate à 0 signifie aucune modif dans ce quad. Si compareRom absent on
+    // retombe sur le mode valeur.
+    let deltaGrid = null;
+    if (this._view3DMode === 'delta' && this.compareRom) {
+      const gridA = this._buildGridFromBuffer(this.compareRom, p);
+      if (gridA) {
+        deltaGrid = grid.map((row, yi) => row.map((v, xi) => v - (gridA[yi]?.[xi] ?? v)));
+      }
+    }
+    const heightGrid = deltaGrid || grid;
+
+    const allVals = heightGrid.flat();
     const minV = allVals.reduce((a, b) => a < b ? a : b, Infinity);
     const maxV = allVals.reduce((a, b) => a > b ? a : b, -Infinity);
     const range = maxV - minV || 1;
+    // Pour la colormap divergente en mode delta : range symétrique autour de 0
+    const absMax = deltaGrid ? Math.max(Math.abs(minV), Math.abs(maxV)) || 1 : null;
 
     // Normalize data to a unit box: X,Y in [-0.5,0.5], Z in [-0.3,0.3]
     const nX = xi => nx > 1 ? (xi / (nx - 1) - 0.5) : 0;
@@ -1496,11 +1528,11 @@ export class MapEditor {
       return { sx: cx + x1 * scale, sy: cy - z2 * scale, depth: y2 };
     };
 
-    // Project all grid vertices once
+    // Project all grid vertices once (heights from deltaGrid in delta mode)
     const verts = [];
     for (let yi = 0; yi < ny; yi++) {
       const row = [];
-      for (let xi = 0; xi < nx; xi++) row.push(project(nX(xi), nY(yi), nZ(grid[yi][xi])));
+      for (let xi = 0; xi < nx; xi++) row.push(project(nX(xi), nY(yi), nZ(heightGrid[yi][xi])));
       verts.push(row);
     }
 
@@ -1532,10 +1564,10 @@ export class MapEditor {
         const v10 = verts[yi][xi + 1];
         const v11 = verts[yi + 1][xi + 1];
         const v01 = verts[yi + 1][xi];
-        const avgV = (grid[yi][xi] + grid[yi][xi + 1] + grid[yi + 1][xi + 1] + grid[yi + 1][xi]) / 4;
+        const avgV = (heightGrid[yi][xi] + heightGrid[yi][xi + 1] + heightGrid[yi + 1][xi + 1] + heightGrid[yi + 1][xi]) / 4;
         quads.push({
           pts: [v00, v10, v11, v01],
-          t: (avgV - minV) / range,
+          t: deltaGrid ? (avgV / absMax) : (avgV - minV) / range,
           depth: (v00.depth + v10.depth + v11.depth + v01.depth) / 4
         });
       }
@@ -1543,7 +1575,7 @@ export class MapEditor {
     quads.sort((a, b) => b.depth - a.depth);
 
     for (const q of quads) {
-      ctx.fillStyle = heatColor(q.t);
+      ctx.fillStyle = deltaGrid ? divergentColor(q.t) : heatColor(q.t);
       ctx.strokeStyle = 'rgba(0,0,0,0.45)';
       ctx.lineWidth = 0.6;
       ctx.beginPath();
