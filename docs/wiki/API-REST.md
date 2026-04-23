@@ -8,7 +8,7 @@ Toutes les routes sont sous `/api`. Le serveur écoute par défaut sur `http://l
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/version` | `{ "version": "0.1.0" }` depuis package.json |
+| GET | `/api/version` | `{ "version": "0.2.0" }` depuis package.json |
 | GET | `/api/ecu` | Liste du catalog : `[{ id, name, a2l, stage1, popbang }]` |
 
 ---
@@ -113,8 +113,14 @@ Trié par **tightness** (cellules changées / cellules totales) descendant — l
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/ecu/:ecu/parameters` | Liste paginée. Query : `search` (texte), `type` (VALUE/CURVE/MAP/VAL_BLK), `offset`, `limit` |
+| GET | `/api/ecu/:ecu/parameters` | Liste paginée (catalog). Query : `search` (texte), `type` (VALUE/CURVE/MAP/VAL_BLK), `offset`, `limit` |
 | GET | `/api/ecu/:ecu/parameters/:name` | Détail d'un paramètre (enrichi avec record layout + compu method) |
+| GET | `/api/projects/:id/parameters` | Paramètres pour CE projet (custom A2L si uploadé, sinon catalog ECU) |
+| GET | `/api/projects/:id/parameters/:name` | Détail d'un paramètre projet |
+| POST | `/api/projects/:id/a2l` | Upload d'un `.a2l` personnalisé (multipart `a2l`) — parsé à chaud |
+| GET | `/api/projects/:id/a2l/info` | `{ custom: bool, fileName?, characteristicsCount? }` |
+| GET | `/api/projects/:id/a2l/match` | **Damos-match score** : `{ score, status: match\|partial\|mismatch, message, sampled, plausible, padding }`. Échantillonne 200 entries A2L avec adresse, vérifie si chaque header est lisible dans la ROM. Score ≥ 90 = damos OK, < 30 = mismatch → open_damos prend le relais. |
+| DELETE | `/api/projects/:id/a2l` | Supprime le custom A2L → retour au catalog |
 
 Exemple :
 
@@ -130,8 +136,53 @@ curl 'http://localhost:3000/api/ecu/edc16c34/parameters?search=DPF&type=VALUE&li
 |---------|-------|-------------|
 | POST | `/api/projects/:id/stage1` | Body `{ pcts: { "MapName": 15, ... } }` — applique les pourcentages à chaque carte du catalog Stage 1 |
 | POST | `/api/projects/:id/popbang` | Body `{ rpm: 4400, fuelQty: 10 }` |
+| GET | `/api/templates` | Tous les templates véhicule, toutes ECUs |
+| GET | `/api/projects/:id/templates` | Templates compatibles avec l'ECU du projet |
+| POST | `/api/projects/:id/apply-template/:tid` | Applique un template (Stage 1 + popbang + auto-mods) atomiquement |
 
-D'autres modifications (DPF, EGR, Swirl, Speed limiter) sont déclenchées depuis le frontend via `PATCH /rom/bytes` après lecture du ROM. Voir [Auto-mods](Auto-mods).
+D'autres modifications (DPF, EGR, Swirl, Speed limiter) sont déclenchées depuis le frontend via `PATCH /rom/bytes` après lecture du ROM. Voir [Auto-mods](Auto-mods) et [Templates véhicule](Templates-vehicule).
+
+---
+
+## Map-Finder
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/api/projects/:id/auto-find-maps` | Scan heuristique → candidats MAPs triés par score (avec cross-ref A2L via `knownName`) |
+
+Voir [Map-Finder](Map-Finder).
+
+---
+
+## Compare fichier externe
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| POST | `/api/projects/:id/compare-file` | Upload d'un `.bin` de référence (multipart) → retourne la liste des cartes qui diffèrent. Buffer gardé en RAM. |
+| GET | `/api/projects/:id/compare-file` | Récupère le buffer de compare stocké (pour `mapEditor.showCompare`) |
+| DELETE | `/api/projects/:id/compare-file` | Libère le buffer de compare en RAM |
+
+Voir [Workflow git — Compare vs fichier externe](Workflow-git#compare-vs-fichier-externe-bin).
+
+---
+
+## ROMs de référence (slots)
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/api/projects/:id/roms` | Liste les ROMs de référence stockés dans le projet |
+| POST | `/api/projects/:id/roms` | Ajoute un slot (multipart `rom`, opt. `name`) |
+| DELETE | `/api/projects/:id/roms/:slug` | Supprime un slot |
+| POST | `/api/projects/:id/compare-file-from-slot/:slug` | Charge un slot comme référence compare-file (retourne le diff-maps direct) |
+
+---
+
+## Notes de map
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/api/projects/:id/notes` | Toutes les notes → `{ [mapName]: text }` |
+| PATCH | `/api/projects/:id/notes/:mapName` | Enregistre (body `{ text }`) ou efface (text vide = delete) la note d'une map |
 
 ---
 
