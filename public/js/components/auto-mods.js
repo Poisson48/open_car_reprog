@@ -297,11 +297,37 @@ export class AutoMods {
     overlay.addEventListener('click', e => { if (e.target === overlay) this._close(); });
     overlay.querySelector('#am-close').addEventListener('click', () => this._close());
 
+    this._romVariant = null; // sera rempli par _detectVariant()
     this._scan();
     this._bindButtons();
     this._loadTemplates();
-    this._loadStage1Deltas();
+    this._detectVariant().then(() => {
+      this._loadStage1Deltas();
+    });
     this._loadPopBangCurrent();
+  }
+
+  // Détecte la variante de puissance (75ch / 90ch / 110ch) via l'endpoint serveur.
+  // Affiche un badge dans l'en-tête et ajuste les % par défaut Stage 1.
+  async _detectVariant() {
+    const bannerEl = this._el?.querySelector('#am-variant-banner');
+    try {
+      const res = await fetch(`/api/projects/${this.projectId}/rom/variant`);
+      if (!res.ok) return;
+      const data = await res.json();
+      this._romVariant = data;
+
+      if (bannerEl && data.variant !== 'unknown') {
+        const colors = { '75ch': '#569cd6', '90ch': '#4ec9b0', '110ch': '#ce9178' };
+        const c = colors[data.variant] || 'var(--accent)';
+        bannerEl.innerHTML = `
+          <span style="background:rgba(${data.variant==='75ch'?'86,156,214':'78,201,176'},0.15);
+            border:1px solid ${c};border-radius:12px;padding:3px 10px;font-size:11px;color:${c}">
+            ⚡ Variante détectée : <strong>${data.label}</strong>
+            — Stage 1 limité à <strong>+${data.safePct}%</strong> recommandé
+          </span>`;
+      }
+    } catch { /* non-fatal */ }
   }
 
   async _loadTemplates() {
@@ -408,10 +434,11 @@ export class AutoMods {
 
     return `
       <div class="modal" style="min-width:580px;max-width:720px;max-height:85vh;display:flex;flex-direction:column">
-        <div style="display:flex;align-items:center;margin-bottom:16px">
+        <div style="display:flex;align-items:center;margin-bottom:8px">
           <h2 style="flex:1">Modifications automatiques — ${this.ecu.toUpperCase()}</h2>
           <button class="btn btn-sm" id="am-close">✕</button>
         </div>
+        <div id="am-variant-banner" style="margin-bottom:10px;min-height:22px"></div>
         <div style="overflow-y:auto;flex:1">
           <div class="am-section">
             <div class="am-cat">🚗 Templates véhicule</div>
@@ -525,9 +552,32 @@ export class AutoMods {
     const statusEl = this._el.querySelector('#am-status-stage1');
     if (statusEl) statusEl.textContent = '';
 
-    // Global percentage slider
+    // Safepct selon variante détectée (mis à jour après _detectVariant)
+    const safePct = () => this._romVariant?.safePct ?? 15;
+
     const wrap = document.createElement('div');
     wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:4px';
+
+    // Bandeau sécurité variante (rempli par _detectVariant via banner global)
+    const safeNote = document.createElement('div');
+    safeNote.id = 'am-s1-safe-note';
+    safeNote.style.cssText = 'font-size:10px;color:var(--text-dim)';
+    safeNote.textContent = 'Détection variante en cours…';
+
+    // Mise à jour du bandeau dès que la variante est connue
+    const variantPollInterval = setInterval(() => {
+      if (!this._el) { clearInterval(variantPollInterval); return; }
+      if (this._romVariant) {
+        clearInterval(variantPollInterval);
+        const v = this._romVariant;
+        if (v.variant !== 'unknown') {
+          safeNote.textContent = `Variante ${v.label} — recommandé ≤ +${v.safePct}% · au-delà = risque mécanique`;
+          safeNote.style.color = 'var(--text-dim)';
+        } else {
+          safeNote.textContent = 'Variante non détectée — vérifiez les % manuellement.';
+        }
+      }
+    }, 300);
 
     // Per-map rows
     const mapInputs = {};
@@ -552,6 +602,19 @@ export class AutoMods {
       pctInput.min = -50; pctInput.max = 50; pctInput.step = 1;
       pctInput.style.cssText = 'width:56px;padding:2px 4px;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:3px;text-align:right';
 
+      // Avertissement si % dépasse le seuil safe pour la variante
+      pctInput.addEventListener('input', () => {
+        const val = Number(pctInput.value);
+        const safe = safePct();
+        if (val > safe) {
+          pctInput.style.borderColor = 'var(--warn)';
+          pctInput.title = `⚠ Dépasse la limite recommandée pour la variante détectée (+${safe}%)`;
+        } else {
+          pctInput.style.borderColor = '';
+          pctInput.title = '';
+        }
+      });
+
       const pctLabel = document.createElement('span');
       pctLabel.textContent = '%';
       pctLabel.style.color = 'var(--text-dim)';
@@ -562,6 +625,7 @@ export class AutoMods {
     });
 
     mapRows.forEach(r => wrap.appendChild(r));
+    wrap.appendChild(safeNote);
 
     // Apply button
     const applyBtn = document.createElement('button');
@@ -569,6 +633,14 @@ export class AutoMods {
     applyBtn.textContent = 'Appliquer Stage 1';
     applyBtn.style.marginTop = '4px';
     applyBtn.addEventListener('click', async () => {
+      // Blocage sécurité : si variante connue et % excessif, confirmer
+      const safe = safePct();
+      const maxEntered = Math.max(...STAGE1_MAPS.map(m => mapInputs[m.name].check.checked ? Number(mapInputs[m.name].pctInput.value) : 0));
+      if (this._romVariant?.variant && this._romVariant.variant !== 'unknown' && maxEntered > safe) {
+        const ok = confirm(`⚠ Variante détectée : ${this._romVariant.label}\n\nLe % sélectionné (+${maxEntered}%) dépasse la limite recommandée (+${safe}%) pour ce moteur.\n\nDépasser ce seuil peut endommager la mécanique.\n\nContinuer quand même ?`);
+        if (!ok) return;
+      }
+
       applyBtn.disabled = true;
       applyBtn.textContent = 'Application…';
 

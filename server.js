@@ -1089,6 +1089,61 @@ app.patch('/api/projects/:id/rom/scalar', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Détecte la variante de puissance du ROM (75ch / 90ch / 110ch) via
+// la cartographie EngPrt_trqAPSLim_MAP localisée par open_damos.
+// Cette MAP est plate (toutes cellules égales) — sa valeur indique le
+// plafond protection moteur configuré par PSA pour chaque variante.
+// Valeurs de référence (raw SWORD, factor 0.1 Nm) :
+//   < 4200  → DV6BTED4  55kW  75ch
+//   4200-4700 → DV6TED4 66kW  90ch
+//   > 4700  → DV6TED4   81kW  110ch
+app.get('/api/projects/:id/rom/variant', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.json({ variant: 'unknown', reason: 'no ROM' });
+
+    const rom = new Uint8Array(fs.readFileSync(pm.getRomPath(proj.id)));
+
+    // Localiser EngPrt_trqAPSLim_MAP via open_damos
+    let addr = null;
+    try {
+      const od = loadOpenDamos(proj.ecu);
+      if (od) {
+        const relocated = relocateOpenDamos(od, rom);
+        const e = relocated.find(r => r.name === 'EngPrt_trqAPSLim_MAP');
+        if (e && e.addressSource !== 'default-fallback') addr = e.address;
+      }
+    } catch { /* non-fatal */ }
+
+    // Fallback : adresse catalog (ori.BIN)
+    if (addr === null) {
+      const ecuDef = getEcu(proj.ecu);
+      addr = ecuDef?.stage1Maps?.find(m => m.name === 'EngPrt_trqAPSLim_MAP')?.address ?? null;
+    }
+
+    if (addr === null) return res.json({ variant: 'unknown', reason: 'map not found' });
+
+    let mapAvg = null;
+    try {
+      const mapData = readMapData(rom, addr);
+      mapAvg = mapData.data.reduce((s, v) => s + v, 0) / mapData.data.length;
+    } catch { return res.json({ variant: 'unknown', reason: 'map read error' }); }
+
+    // Classification par valeur moyenne du plafond protection
+    let variant, label, safePct;
+    if (mapAvg < 4200) {
+      variant = '75ch'; label = 'DV6BTED4 55kW 75ch'; safePct = 8;
+    } else if (mapAvg < 4700) {
+      variant = '90ch'; label = 'DV6TED4 66kW 90ch'; safePct = 12;
+    } else {
+      variant = '110ch'; label = 'DV6TED4 81kW 110ch'; safePct = 15;
+    }
+
+    res.json({ variant, label, mapAvg: Math.round(mapAvg), addr, safePct, confidence: addr ? 'high' : 'low' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Retourne le delta moyen (% vs stock) de chaque MAP Stage 1 du projet.
 // Utilisé par le modal auto-mods pour pré-remplir les sliders au bon %.
 app.get('/api/projects/:id/rom/stage1-delta', async (req, res) => {
