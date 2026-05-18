@@ -9,7 +9,7 @@ const ECU_CATALOG = [
     name: 'EDC16C34',
     family: 'EDC16',
     fuel: 'diesel',
-    application: 'PSA 1.6 HDi 110cv (DV6TED4) — 206 / 307 / 308 / Berlingo / C3 / C4',
+    application: 'PSA 1.6 HDi (DV6TED4 110cv / DV6BTED4 75ch) — 206 / 307 / 308 / Berlingo / Partner / C3 / C4',
     a2l: 'ressources/edc16c34/damos.a2l',
     // Adresses confirmées par cross-check A2L (damos.a2l) ↔ ori.BIN ↔
     // forums ecuedit / ecuconnections / mhhauto. Les adresses précédentes

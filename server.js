@@ -949,28 +949,44 @@ app.post('/api/projects/:id/popbang', async (req, res) => {
     const params = ecuDef?.popbangParams;
     if (!params) return res.status(400).json({ error: 'Pop & bang non supporté pour ce calculateur' });
 
-    const { rpm = 3000, fuelQty = 10 } = req.body; // fuelQty in raw units (×10 mg)
+    const { rpm = 3000, fuelQty = 10 } = req.body;
 
     const romPath = pm.getRomPath(proj.id);
     const rom = Buffer.from(fs.readFileSync(romPath));
     const u8 = new Uint8Array(rom.buffer, rom.byteOffset, rom.byteLength);
 
+    // Résolution adresses : open_damos → catalog.
+    // Les adresses du catalog correspondent à ori.BIN (firmware 110ch).
+    // Pour un firmware différent (ex: 75ch DV6BTED4), open_damos trouve
+    // les bonnes adresses via empreinte d'axes.
+    const resolvedN = await resolveScalar(proj, 'AirCtl_nOvrRun_C');
+    const resolvedQ = await resolveScalar(proj, 'AirCtl_qOvrRun_C');
+    const addrN = resolvedN?.address ?? params.nOvrRun.address;
+    const addrQ = resolvedQ?.address ?? params.qOvrRun.address;
+
     const clampedRpm = Math.max(params.nOvrRun.min, Math.min(params.nOvrRun.max, Math.round(rpm)));
     const clampedQty = Math.max(params.qOvrRun.min, Math.min(params.qOvrRun.max, Math.round(fuelQty)));
 
-    writeValue(u8, params.nOvrRun.address, clampedRpm);
-    writeValue(u8, params.qOvrRun.address, clampedQty);
+    writeValue(u8, addrN, clampedRpm);
+    writeValue(u8, addrQ, clampedQty);
 
     fs.writeFileSync(romPath, rom);
-    res.json({ ok: true, rpm: clampedRpm, fuelQty: clampedQty });
+    res.json({ ok: true, rpm: clampedRpm, fuelQty: clampedQty,
+      addrN: addrN, addrQ: addrQ,
+      sourceN: resolvedN?.addressSource ?? 'catalog',
+      sourceQ: resolvedQ?.addressSource ?? 'catalog' });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
 // ── Scalaires réglables — lecture / écriture d'un paramètre VALUE ─────────────
-// Résolution en cascade : A2L custom → A2L catalog → open_damos relocalisé →
-// catalog d'adresses connues (fallback hardcodé pour EDC16C34).
+// Résolution en cascade : A2L custom → open_damos fingerprint → A2L catalog → hardcodé.
+//
+// L'A2L custom est uploadé par l'utilisateur pour son firmware exact → priorité absolue.
+// open_damos fingerprint est firmware-agnostique (fonctionne sur 75ch, 90ch, 110ch, etc.)
+// → priorité sur l'A2L catalog qui correspond UNIQUEMENT au firmware ori.BIN (110ch ref).
+// L'A2L catalog et les adresses hardcodées ne sont que des derniers recours.
 
 const SCALAR_KNOWN_ADDRESSES = {
   AirCtl_nMin_C:    { address: 0x1C41B8, unit: 'tr/min', factor: 1, offset: 0 },
@@ -979,11 +995,20 @@ const SCALAR_KNOWN_ADDRESSES = {
 };
 
 async function resolveScalar(proj, name) {
-  const a2l = await getA2lForProject(proj);
-  const char = a2l?.characteristics?.find(c => c.name === name);
-  if (char?.address !== undefined) {
-    return { address: char.address, addressSource: 'a2l', factor: char.factor || 1, offset: char.offset || 0, unit: char.unit || '' };
+  // 1. A2L custom uploadé par l'utilisateur (correspond à son firmware exact)
+  const customPath = path.join(pm.getProjectDir(proj.id), 'custom.a2l');
+  if (fs.existsSync(customPath)) {
+    const customA2l = await getA2lForProject(proj);
+    const char = customA2l?.characteristics?.find(c => c.name === name);
+    if (char?.address !== undefined) {
+      return { address: char.address, addressSource: 'a2l-custom', factor: char.factor || 1, offset: char.offset || 0, unit: char.unit || '' };
+    }
   }
+
+  // 2. open_damos fingerprint — firmware-agnostique, prioritaire sur l'A2L catalog
+  // (l'A2L catalog = damos.a2l ne correspond qu'au firmware ori.BIN, pas au 75ch ni
+  // aux autres variantes. open_damos trouve les bonnes adresses par empreinte d'axes
+  // quelle que soit la variante DV6.)
   try {
     const od = loadOpenDamos(proj.ecu);
     if (od) {
@@ -995,6 +1020,15 @@ async function resolveScalar(proj, name) {
       }
     }
   } catch { /* non-fatal */ }
+
+  // 3. A2L catalog (damos.a2l — valide uniquement pour le firmware ori.BIN)
+  const catalogA2l = await getA2l(proj.ecu);
+  const char = catalogA2l?.characteristics?.find(c => c.name === name);
+  if (char?.address !== undefined) {
+    return { address: char.address, addressSource: 'a2l-catalog', factor: char.factor || 1, offset: char.offset || 0, unit: char.unit || '' };
+  }
+
+  // 4. Adresses hardcodées (dernier recours absolu)
   if (SCALAR_KNOWN_ADDRESSES[name]) {
     return { ...SCALAR_KNOWN_ADDRESSES[name], addressSource: 'catalog' };
   }
@@ -1072,18 +1106,29 @@ app.get('/api/projects/:id/rom/stage1-delta', async (req, res) => {
     const curr = new Uint8Array(fs.readFileSync(romPath));
     const orig = new Uint8Array(fs.readFileSync(backupPath));
 
+    // Résolution open_damos une fois pour toutes les maps (même logique que /stage1).
+    const odByName = new Map();
+    try {
+      const od = loadOpenDamos(proj.ecu);
+      if (od) for (const r of relocateOpenDamos(od, curr)) odByName.set(r.name, r);
+    } catch { /* non-fatal */ }
+
     const maps = ecuDef.stage1Maps.map(m => {
+      // Cascade adresse : open_damos fingerprint → catalog
+      const odEntry = odByName.get(m.name);
+      const addr = (odEntry && odEntry.addressSource !== 'default-fallback') ? odEntry.address : m.address;
+      const source = (odEntry?.addressSource === 'fingerprint') ? 'open_damos' : 'catalog';
       try {
-        const currMap = readMapData(curr, m.address);
-        const origMap = readMapData(orig, m.address);
+        const currMap = readMapData(curr, addr);
+        const origMap = readMapData(orig, addr);
         let sum = 0, count = 0;
         for (let i = 0; i < currMap.data.length; i++) {
           const o = origMap.data[i];
           if (o > 0) { sum += (currMap.data[i] - o) / o; count++; }
         }
-        return { name: m.name, label: m.label, address: m.address, avgPct: count > 0 ? Math.round(sum / count * 1000) / 10 : 0 };
+        return { name: m.name, label: m.label, address: addr, addressSource: source, avgPct: count > 0 ? Math.round(sum / count * 1000) / 10 : 0 };
       } catch (e) {
-        return { name: m.name, label: m.label, address: m.address, avgPct: 0, error: e.message };
+        return { name: m.name, label: m.label, address: addr, addressSource: source, avgPct: 0, error: e.message };
       }
     });
     res.json({ maps });
