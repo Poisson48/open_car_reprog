@@ -12,7 +12,7 @@ const { getEcu, listEcus } = require('./src/ecu-catalog');
 const { loadOpenDamos, relocate: relocateOpenDamos } = require('./src/open-damos');
 const { exportA2l: exportOpenDamosA2l } = require('./src/open-damos-a2l-export');
 const { listRecipes, getRecipe, applyRecipe } = require('./src/open-damos-recipes');
-const { listTemplates, getTemplate, listTemplatesForEcu } = require('./src/vehicle-templates');
+const { listTemplates, getTemplate, listTemplatesForEcu, listTemplatesForVariant } = require('./src/vehicle-templates');
 const { mapsChanged } = require('./src/map-differ');
 const { findMaps } = require('./src/map-finder');
 const { generateReport } = require('./src/report-generator');
@@ -1089,62 +1089,50 @@ app.patch('/api/projects/:id/rom/scalar', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Détecte la variante de puissance du ROM (75ch / 90ch / 110ch) via
-// la cartographie EngPrt_trqAPSLim_MAP localisée par open_damos.
-// Cette MAP est plate (toutes cellules égales) — sa valeur indique le
-// plafond protection moteur configuré par PSA pour chaque variante.
-// Valeurs de référence (raw SWORD, factor 0.1 Nm) :
-//   < 4200  → DV6BTED4  55kW  75ch
-//   4200-4700 → DV6TED4 66kW  90ch
-//   > 4700  → DV6TED4   81kW  110ch
+// Détecte la variante de puissance d'un projet (75ch / 90ch / 110ch).
+// Lit TOUJOURS le backup (rom.original.bin) pour ne pas être trompé par
+// un Stage 1 déjà appliqué sur la ROM courante.
+async function detectRomVariant(proj) {
+  if (!proj.hasRom) return { variant: 'unknown', reason: 'no ROM' };
+  const backupPath = pm.getBackupPath(proj.id);
+  const romPath = backupPath || pm.getRomPath(proj.id);
+  const rom = new Uint8Array(fs.readFileSync(romPath));
+
+  let addr = null;
+  try {
+    const od = loadOpenDamos(proj.ecu);
+    if (od) {
+      const relocated = relocateOpenDamos(od, rom);
+      const e = relocated.find(r => r.name === 'EngPrt_trqAPSLim_MAP');
+      if (e && e.addressSource !== 'default-fallback') addr = e.address;
+    }
+  } catch { /* non-fatal */ }
+
+  if (addr === null) {
+    const ecuDef = getEcu(proj.ecu);
+    addr = ecuDef?.stage1Maps?.find(m => m.name === 'EngPrt_trqAPSLim_MAP')?.address ?? null;
+  }
+  if (addr === null) return { variant: 'unknown', reason: 'map not found' };
+
+  let mapAvg;
+  try {
+    const mapData = readMapData(rom, addr);
+    mapAvg = mapData.data.reduce((s, v) => s + v, 0) / mapData.data.length;
+  } catch { return { variant: 'unknown', reason: 'map read error' }; }
+
+  let variant, label, safePct;
+  if (mapAvg < 4200)      { variant = '75ch';  label = 'DV6BTED4 55kW 75ch';  safePct = 8; }
+  else if (mapAvg < 4700) { variant = '90ch';  label = 'DV6TED4 66kW 90ch';   safePct = 12; }
+  else                    { variant = '110ch'; label = 'DV6TED4 81kW 110ch';  safePct = 15; }
+
+  return { variant, label, mapAvg: Math.round(mapAvg), addr, safePct, confidence: 'high' };
+}
+
 app.get('/api/projects/:id/rom/variant', async (req, res) => {
   try {
     const proj = await pm.get(req.params.id);
     if (!proj) return res.status(404).json({ error: 'Project not found' });
-    if (!proj.hasRom) return res.json({ variant: 'unknown', reason: 'no ROM' });
-
-    // Toujours lire le backup (ROM originale jamais modifiée) pour éviter
-    // qu'un Stage 1 déjà appliqué fausse la détection de variante.
-    const backupPath = pm.getBackupPath(proj.id);
-    const romPath = backupPath || pm.getRomPath(proj.id);
-    const rom = new Uint8Array(fs.readFileSync(romPath));
-
-    // Localiser EngPrt_trqAPSLim_MAP via open_damos
-    let addr = null;
-    try {
-      const od = loadOpenDamos(proj.ecu);
-      if (od) {
-        const relocated = relocateOpenDamos(od, rom);
-        const e = relocated.find(r => r.name === 'EngPrt_trqAPSLim_MAP');
-        if (e && e.addressSource !== 'default-fallback') addr = e.address;
-      }
-    } catch { /* non-fatal */ }
-
-    // Fallback : adresse catalog (ori.BIN)
-    if (addr === null) {
-      const ecuDef = getEcu(proj.ecu);
-      addr = ecuDef?.stage1Maps?.find(m => m.name === 'EngPrt_trqAPSLim_MAP')?.address ?? null;
-    }
-
-    if (addr === null) return res.json({ variant: 'unknown', reason: 'map not found' });
-
-    let mapAvg = null;
-    try {
-      const mapData = readMapData(rom, addr);
-      mapAvg = mapData.data.reduce((s, v) => s + v, 0) / mapData.data.length;
-    } catch { return res.json({ variant: 'unknown', reason: 'map read error' }); }
-
-    // Classification par valeur moyenne du plafond protection
-    let variant, label, safePct;
-    if (mapAvg < 4200) {
-      variant = '75ch'; label = 'DV6BTED4 55kW 75ch'; safePct = 8;
-    } else if (mapAvg < 4700) {
-      variant = '90ch'; label = 'DV6TED4 66kW 90ch'; safePct = 12;
-    } else {
-      variant = '110ch'; label = 'DV6TED4 81kW 110ch'; safePct = 15;
-    }
-
-    res.json({ variant, label, mapAvg: Math.round(mapAvg), addr, safePct, confidence: addr ? 'high' : 'low' });
+    res.json(await detectRomVariant(proj));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1302,9 +1290,16 @@ app.get('/api/templates', (req, res) => {
 });
 
 app.get('/api/projects/:id/templates', async (req, res) => {
-  const proj = await pm.get(req.params.id);
-  if (!proj) return res.status(404).json({ error: 'Project not found' });
-  res.json(listTemplatesForEcu(proj.ecu));
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    // Si la ROM est chargée, filtrer par variante détectée (depuis backup)
+    if (proj.hasRom) {
+      const { variant } = await detectRomVariant(proj);
+      if (variant !== 'unknown') return res.json(listTemplatesForVariant(proj.ecu, variant));
+    }
+    res.json(listTemplatesForEcu(proj.ecu));
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/projects/:id/apply-template/:tid', async (req, res) => {
@@ -1317,6 +1312,15 @@ app.post('/api/projects/:id/apply-template/:tid', async (req, res) => {
     if (!template) return res.status(404).json({ error: 'Unknown template' });
     if (!template.appliesTo.includes(proj.ecu)) {
       return res.status(400).json({ error: `Template "${template.id}" incompatible avec l'ECU ${proj.ecu}` });
+    }
+    // Bloquer si le template est spécifique à une variante différente de celle détectée
+    if (template.appliesToVariant !== null) {
+      const { variant } = await detectRomVariant(proj);
+      if (variant !== 'unknown' && !template.appliesToVariant.includes(variant)) {
+        return res.status(400).json({
+          error: `Template "${template.name}" est pour ${template.appliesToVariant.join('/')} — variante détectée : ${variant}. Utilisez un template adapté à votre moteur.`
+        });
+      }
     }
 
     const result = await applyTemplateToProject(proj, template);
