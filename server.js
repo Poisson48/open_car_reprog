@@ -1103,7 +1103,11 @@ app.get('/api/projects/:id/rom/variant', async (req, res) => {
     if (!proj) return res.status(404).json({ error: 'Project not found' });
     if (!proj.hasRom) return res.json({ variant: 'unknown', reason: 'no ROM' });
 
-    const rom = new Uint8Array(fs.readFileSync(pm.getRomPath(proj.id)));
+    // Toujours lire le backup (ROM originale jamais modifiée) pour éviter
+    // qu'un Stage 1 déjà appliqué fausse la détection de variante.
+    const backupPath = pm.getBackupPath(proj.id);
+    const romPath = backupPath || pm.getRomPath(proj.id);
+    const rom = new Uint8Array(fs.readFileSync(romPath));
 
     // Localiser EngPrt_trqAPSLim_MAP via open_damos
     let addr = null;
