@@ -7,7 +7,7 @@ const ProjectManager = require('./src/project-manager');
 const GitManager = require('./src/git-manager');
 const A2lParser = require('./src/a2l-parser');
 const WinolsParser = require('./src/winols-parser');
-const { applyPctToMap, readValue, writeValue } = require('./src/rom-patcher');
+const { applyPctToMap, readValue, writeValue, readMapData } = require('./src/rom-patcher');
 const { getEcu, listEcus } = require('./src/ecu-catalog');
 const { loadOpenDamos, relocate: relocateOpenDamos } = require('./src/open-damos');
 const { exportA2l: exportOpenDamosA2l } = require('./src/open-damos-a2l-export');
@@ -966,6 +966,167 @@ app.post('/api/projects/:id/popbang', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Scalaires réglables — lecture / écriture d'un paramètre VALUE ─────────────
+// Résolution en cascade : A2L custom → A2L catalog → open_damos relocalisé →
+// catalog d'adresses connues (fallback hardcodé pour EDC16C34).
+
+const SCALAR_KNOWN_ADDRESSES = {
+  AirCtl_nMin_C:    { address: 0x1C41B8, unit: 'tr/min', factor: 1, offset: 0 },
+  AirCtl_nOvrRun_C: { address: 0x1C4046, unit: 'tr/min', factor: 1, offset: 0 },
+  AirCtl_qOvrRun_C: { address: 0x1C40B4, unit: 'raw',    factor: 1, offset: 0 },
+};
+
+async function resolveScalar(proj, name) {
+  const a2l = await getA2lForProject(proj);
+  const char = a2l?.characteristics?.find(c => c.name === name);
+  if (char?.address !== undefined) {
+    return { address: char.address, addressSource: 'a2l', factor: char.factor || 1, offset: char.offset || 0, unit: char.unit || '' };
+  }
+  try {
+    const od = loadOpenDamos(proj.ecu);
+    if (od) {
+      const romBuf = fs.readFileSync(pm.getRomPath(proj.id));
+      const relocated = relocateOpenDamos(od, romBuf);
+      const entry = relocated.find(r => r.name === name);
+      if (entry && entry.addressSource !== 'default-fallback' && entry.score > 0) {
+        return { address: entry.address, addressSource: 'open_damos', factor: entry.data?.factor || 1, offset: entry.data?.offset || 0, unit: entry.unit || '' };
+      }
+    }
+  } catch { /* non-fatal */ }
+  if (SCALAR_KNOWN_ADDRESSES[name]) {
+    return { ...SCALAR_KNOWN_ADDRESSES[name], addressSource: 'catalog' };
+  }
+  return null;
+}
+
+app.get('/api/projects/:id/rom/scalar', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.status(400).json({ error: 'No ROM imported' });
+    const { name } = req.query;
+    if (!name) return res.status(400).json({ error: 'name required' });
+
+    const resolved = await resolveScalar(proj, name);
+    if (!resolved) return res.status(404).json({ error: `Paramètre "${name}" non trouvé (A2L, open_damos, catalog)` });
+
+    const rom = new Uint8Array(fs.readFileSync(pm.getRomPath(proj.id)));
+    const rawValue = readValue(rom, resolved.address);
+    const physValue = Math.round((rawValue * resolved.factor + resolved.offset) * 100) / 100;
+
+    let stockRaw = null, stockPhys = null;
+    const backupPath = pm.getBackupPath(proj.id);
+    if (backupPath) {
+      const orig = new Uint8Array(fs.readFileSync(backupPath));
+      if (resolved.address + 1 < orig.length) {
+        stockRaw = readValue(orig, resolved.address);
+        stockPhys = Math.round((stockRaw * resolved.factor + resolved.offset) * 100) / 100;
+      }
+    }
+
+    res.json({ name, ...resolved, rawValue, physValue, stockRaw, stockPhys, modified: stockRaw !== null && rawValue !== stockRaw });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/projects/:id/rom/scalar', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.status(400).json({ error: 'No ROM imported' });
+    const { name, physValue, rawValue: rawIn } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+    if (physValue === undefined && rawIn === undefined) return res.status(400).json({ error: 'physValue or rawValue required' });
+
+    const resolved = await resolveScalar(proj, name);
+    if (!resolved) return res.status(404).json({ error: `Paramètre "${name}" non trouvé` });
+
+    const romPath = pm.getRomPath(proj.id);
+    const rom = Buffer.from(fs.readFileSync(romPath));
+    const u8 = new Uint8Array(rom.buffer, rom.byteOffset, rom.byteLength);
+    const oldRaw = readValue(u8, resolved.address);
+    const newRaw = Math.max(-32768, Math.min(32767, Math.round(
+      rawIn !== undefined ? rawIn : (physValue - resolved.offset) / resolved.factor
+    )));
+    writeValue(u8, resolved.address, newRaw);
+    fs.writeFileSync(romPath, rom);
+    res.json({ ok: true, name, address: resolved.address, addressSource: resolved.addressSource, oldRaw, newRaw, physValue: Math.round((newRaw * resolved.factor + resolved.offset) * 100) / 100 });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Retourne le delta moyen (% vs stock) de chaque MAP Stage 1 du projet.
+// Utilisé par le modal auto-mods pour pré-remplir les sliders au bon %.
+app.get('/api/projects/:id/rom/stage1-delta', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.json({ maps: [] });
+    const ecuDef = getEcu(proj.ecu);
+    if (!ecuDef?.stage1Maps) return res.json({ maps: [] });
+
+    const romPath = pm.getRomPath(proj.id);
+    const backupPath = pm.getBackupPath(proj.id);
+    if (!backupPath) return res.json({ maps: ecuDef.stage1Maps.map(m => ({ name: m.name, label: m.label, address: m.address, avgPct: 0 })) });
+
+    const curr = new Uint8Array(fs.readFileSync(romPath));
+    const orig = new Uint8Array(fs.readFileSync(backupPath));
+
+    const maps = ecuDef.stage1Maps.map(m => {
+      try {
+        const currMap = readMapData(curr, m.address);
+        const origMap = readMapData(orig, m.address);
+        let sum = 0, count = 0;
+        for (let i = 0; i < currMap.data.length; i++) {
+          const o = origMap.data[i];
+          if (o > 0) { sum += (currMap.data[i] - o) / o; count++; }
+        }
+        return { name: m.name, label: m.label, address: m.address, avgPct: count > 0 ? Math.round(sum / count * 1000) / 10 : 0 };
+      } catch (e) {
+        return { name: m.name, label: m.label, address: m.address, avgPct: 0, error: e.message };
+      }
+    });
+    res.json({ maps });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Patch en masse des octets DSM_ClaDfp (suppression DTC).
+// Body: { addresses: number[], restore?: boolean }
+// restore=true → lit les valeurs depuis la ROM originale (backup).
+// restore=false (défaut) → écrit 0x00 à chaque adresse.
+app.post('/api/projects/:id/dtc-group', async (req, res) => {
+  try {
+    const proj = await pm.get(req.params.id);
+    if (!proj) return res.status(404).json({ error: 'Project not found' });
+    if (!proj.hasRom) return res.status(400).json({ error: 'No ROM imported' });
+
+    const { addresses, restore } = req.body;
+    if (!Array.isArray(addresses) || !addresses.length) return res.status(400).json({ error: 'addresses array required' });
+
+    const romPath = pm.getRomPath(proj.id);
+    const rom = Buffer.from(fs.readFileSync(romPath));
+
+    let values;
+    if (restore) {
+      const backupPath = pm.getBackupPath(proj.id);
+      if (!backupPath) return res.status(400).json({ error: 'No original ROM for restore' });
+      const orig = fs.readFileSync(backupPath);
+      values = addresses.map(addr => orig[addr] ?? 0x00);
+    } else {
+      values = new Array(addresses.length).fill(0x00);
+    }
+
+    let changed = 0;
+    for (let i = 0; i < addresses.length; i++) {
+      const addr = addresses[i];
+      if (addr < 0 || addr >= rom.length) continue;
+      if (rom[addr] !== values[i]) changed++;
+      rom[addr] = values[i];
+    }
+
+    fs.writeFileSync(romPath, rom);
+    res.json({ ok: true, bytesWritten: addresses.length, changed });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Vehicle templates — presets Stage 1 / Pop&Bang / dépollution par famille ──

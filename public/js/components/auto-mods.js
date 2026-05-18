@@ -26,15 +26,16 @@ const MODS = {
       type: 'address'
     },
     {
-      id: 'egr_off',
+      id: 'adj_egr_threshold',
       category: 'Dépollution',
-      name: 'EGR OFF (hystérésis à 0)',
-      description: 'Force l\'hystérésis EGR à 0 pour couper la recirculation des gaz.',
-      risk: 'medium',
-      address: 0x1C4C4E,
-      bytes:   [0x00, 0x00],
-      restore: null,
-      type: 'address'
+      name: 'Seuil coupure EGR — AirCtl_nMin_C',
+      description: 'Régime au-dessus duquel l\'EGR ne peut plus s\'ouvrir. Stock ~700 tr/min (EDC16C34 PSA). À 8000 tr/min l\'EGR ne s\'active jamais en roulage normal (équivalent EGR OFF).',
+      risk: 'low',
+      type: 'adjustable',
+      paramName: 'AirCtl_nMin_C',
+      unit: 'tr/min',
+      min: 500, max: 8000, step: 250,
+      stockHint: 700,
     },
     {
       id: 'swirl_off',
@@ -115,6 +116,150 @@ const MODS = {
       type: 'recipe',
       recipeId: 'full_depollution',
     },
+    {
+      id: 'adj_rev_limiter',
+      category: 'Réglages avancés',
+      name: 'Limiteur régime NMR — AccPed_nLimNMR_C',
+      description: 'Seuil Non-Monitored Range. Au-delà, le calculateur réduit le contrôle couple. Stock ~1500 tr/min. Recommandé ≤ 5500 tr/min avec Stage 1 pour éviter les DTC de plausibilité.',
+      risk: 'medium',
+      type: 'adjustable',
+      paramName: 'AccPed_nLimNMR_C',
+      unit: 'tr/min',
+      min: 1500, max: 6000, step: 250,
+      stockHint: 1500,
+    },
+    {
+      id: 'adj_speed_limiter',
+      category: 'Réglages avancés',
+      name: 'Limiteur vitesse — VSSCD_vMax_C',
+      description: 'Vitesse max du régulateur de vitesse et du contrôle propulsion. Stock PSA ~180 km/h. 320 km/h = débrider totalement (régulateur peut dépasser 130 km/h).',
+      risk: 'low',
+      type: 'adjustable',
+      paramName: 'VSSCD_vMax_C',
+      unit: 'km/h',
+      min: 50, max: 320, step: 10,
+      stockHint: 220,
+    },
+    {
+      id: 'adj_torque_nmr',
+      category: 'Réglages avancés',
+      name: 'Couple max NMR — AccPed_trqNMRMax_C',
+      description: 'Plafond couple en mode Non-Monitored Range. Évite que le Stage 1 soit saturé par cette limite protectrice. Stock EDC16C34 PSA = 100 Nm (factor 0.2). Relever à 250 Nm pour la full dépollution.',
+      risk: 'medium',
+      type: 'adjustable',
+      paramName: 'AccPed_trqNMRMax_C',
+      unit: 'Nm',
+      min: 100, max: 350, step: 10,
+      stockHint: 100,
+    },
+    {
+      id: 'adj_cruise_speed',
+      category: 'Réglages avancés',
+      name: 'Vitesse max régulateur croisière — CrCCD_vSetSpdMax_C',
+      description: 'Plafond du régulateur de vitesse (cruise control). Stock PSA EDC16C34 = 254 km/h. À relever uniquement si le régulateur se coupe avant d\'atteindre la vitesse demandée (rarement nécessaire).',
+      risk: 'low',
+      type: 'adjustable',
+      paramName: 'CrCCD_vSetSpdMax_C',
+      unit: 'km/h',
+      min: 50, max: 320, step: 10,
+      stockHint: 254,
+    },
+    // ─────────────── Codes défaut (DTC) ───────────────
+    // Adresses A2L DSM_ClaDfp_* du damos.a2l (validées sur ori.BIN).
+    // Sur le Berlingo 9663944680.Bin (firmware différent), les adresses
+    // peuvent ne pas correspondre — lire l'avertissement dans l'UI.
+    {
+      id: 'dtc_all',
+      category: 'Codes défaut (DTC)',
+      name: 'Supprimer TOUS les codes défaut — 195 DTC',
+      description: 'Met à zéro les 195 paramètres DSM_ClaDfp_* (0x1C6734 → 0x1C67F6). Couvre EGR, DPF, turbo, injecteurs, bougies, rail, capteurs, réseau CAN. Compatible DV6 si même firmware Bosch EDC16C34.',
+      risk: 'medium',
+      type: 'dtc_group',
+      addresses: Array.from({ length: 195 }, (_, i) => 0x1C6734 + i),
+    },
+    {
+      id: 'dtc_egr',
+      category: 'Codes défaut (DTC)',
+      name: 'EGR — Codes circuit vanne EGR (8 DTC)',
+      description: 'Supprime EGRCD, EGRSCD (capteur/vanne), EGRVlv (bourrage, dérive long/court terme, gouverneur). À combiner avec le seuil EGR à 8000 tr/min pour une dépollution complète.',
+      risk: 'low',
+      type: 'dtc_group',
+      addresses: [0x1C677A, 0x1C677B, 0x1C677C, 0x1C677D, 0x1C677E, 0x1C677F, 0x1C6780, 0x1C6781],
+    },
+    {
+      id: 'dtc_dpf',
+      category: 'Codes défaut (DTC)',
+      name: 'DPF/FAP — Codes filtre à particules (7 DTC)',
+      description: 'Supprime PFlt* : différentiel pression, charge absente/max/dépassée, défaillance filtre. À utiliser avec DPF OFF physique.',
+      risk: 'low',
+      type: 'dtc_group',
+      addresses: [0x1C67C8, 0x1C67C9, 0x1C67CA, 0x1C67CB, 0x1C67CC, 0x1C67CD, 0x1C67CE],
+    },
+    {
+      id: 'dtc_boost',
+      category: 'Codes défaut (DTC)',
+      name: 'Turbo/Boost — Codes suralimentation (19 DTC)',
+      description: 'AFSCD (débitmètre, 11 codes), AirCtl débit/gouverneur (4), BPA actionneur boost (3), BPSCD capteur boost. Utile si débitmètre ou capteur boost déconnecté.',
+      risk: 'medium',
+      type: 'dtc_group',
+      addresses: [
+        // AFSCD 0x1C6739-0x1C6743 (11)
+        ...Array.from({ length: 11 }, (_, i) => 0x1C6739 + i),
+        // AirCtl flow + governor 0x1C6753-0x1C6756 (4)
+        0x1C6753, 0x1C6754, 0x1C6755, 0x1C6756,
+        // BPA actuateur + BPSCD capteur 0x1C675B-0x1C675E (4)
+        0x1C675B, 0x1C675C, 0x1C675D, 0x1C675E,
+      ],
+    },
+    {
+      id: 'dtc_injectors',
+      category: 'Codes défaut (DTC)',
+      name: 'Injecteurs — Codes par cylindre et rampe (19 DTC)',
+      description: 'InjCrv (courbe), InjVlvBnk (par rampe ×4), InjVlvChip (pilotes A/B), InjVlvCyl (par cylindre ×12). Utile après remplacement ou recalibration injecteurs.',
+      risk: 'medium',
+      type: 'dtc_group',
+      addresses: [
+        0x1C67A2, // InjCrv
+        0x1C67A3, 0x1C67A4, 0x1C67A5, 0x1C67A6, // InjVlvBnk ×4
+        0x1C67A7, 0x1C67A8, // InjVlvChipA/B
+        // InjVlvCyl ×12 : 0x1C67A9-0x1C67B4
+        ...Array.from({ length: 12 }, (_, i) => 0x1C67A9 + i),
+      ],
+    },
+    {
+      id: 'dtc_rail',
+      category: 'Codes défaut (DTC)',
+      name: 'Rail/Pompe HP — Codes haute pression (9 DTC)',
+      description: 'RailCD, RailCDOfsTst (test offset rail), RailMeUn (unité de dosage pompe HP ×7). Utile après modification de la pression rail ou remplacement pompe.',
+      risk: 'medium',
+      type: 'dtc_group',
+      addresses: [
+        0x1C67D1, 0x1C67D2, // RailCD, RailCDOfsTst
+        // RailMeUn 0x1C67D3-0x1C67D9 (7)
+        ...Array.from({ length: 7 }, (_, i) => 0x1C67D3 + i),
+      ],
+    },
+    {
+      id: 'dtc_glowplug',
+      category: 'Codes défaut (DTC)',
+      name: 'Bougies de préchauffage (4 DTC)',
+      description: 'GlwCD (commande) + GlwCtl (régulation bougies de préchauffage). Inutiles si bougies neuves ou moteur toujours chaud.',
+      risk: 'low',
+      type: 'dtc_group',
+      addresses: [0x1C6795, 0x1C6796, 0x1C6797, 0x1C6798],
+    },
+    {
+      id: 'dtc_misfire',
+      category: 'Codes défaut (DTC)',
+      name: 'Ratés de combustion (7 DTC)',
+      description: 'CmbChbMisfire ×6 (détection ratés par cylindre) + CmbChbMisfireMul (ratés multiples). Peut masquer une vraie anomalie — à utiliser avec précaution.',
+      risk: 'medium',
+      type: 'dtc_group',
+      addresses: [
+        // CmbChbMisfire 0x1C676C-0x1C6771 (6) + CmbChbMisfireMul 0x1C6772 (1)
+        ...Array.from({ length: 7 }, (_, i) => 0x1C676C + i),
+      ],
+    },
   ]
 };
 
@@ -155,6 +300,8 @@ export class AutoMods {
     this._scan();
     this._bindButtons();
     this._loadTemplates();
+    this._loadStage1Deltas();
+    this._loadPopBangCurrent();
   }
 
   async _loadTemplates() {
@@ -289,6 +436,8 @@ export class AutoMods {
         const current = Array.from(this.romData.slice(mod.address, mod.address + mod.bytes.length));
         const applied = current.every((b, i) => b === mod.bytes[i]);
         this._results.set(mod.id, { found: true, offset: mod.address, applied });
+      } else if (mod.type === 'adjustable' || mod.type === 'dtc_group') {
+        this._results.set(mod.id, { found: null, offset: -1, applied: null });
       } else {
         this._results.set(mod.id, { found: null, offset: -1, applied: false });
       }
@@ -320,6 +469,16 @@ export class AutoMods {
 
       if (mod.type === 'recipe') {
         this._buildRecipeActions(actionsEl, mod);
+        continue;
+      }
+
+      if (mod.type === 'adjustable') {
+        this._buildAdjustableActions(actionsEl, mod);
+        continue;
+      }
+
+      if (mod.type === 'dtc_group') {
+        this._buildDTCGroupActions(actionsEl, mod);
         continue;
       }
 
@@ -388,6 +547,7 @@ export class AutoMods {
 
       const pctInput = document.createElement('input');
       pctInput.type = 'number';
+      pctInput.id = `s1-pct-${m.name}`;
       pctInput.value = m.defaultPct;
       pctInput.min = -50; pctInput.max = 50; pctInput.step = 1;
       pctInput.style.cssText = 'width:56px;padding:2px 4px;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:3px;text-align:right';
@@ -474,6 +634,7 @@ export class AutoMods {
     rpmLabel.textContent = 'RPM départ overrun :';
     rpmLabel.style.cssText = 'width:160px;flex-shrink:0';
     const rpmSelect = document.createElement('select');
+    rpmSelect.id = 'pb-rpm-select';
     rpmSelect.style.cssText = 'flex:1;padding:4px 8px;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:3px';
     for (const r of BOSCH_RPM_AXIS) {
       const o = document.createElement('option');
@@ -482,6 +643,7 @@ export class AutoMods {
       rpmSelect.appendChild(o);
     }
     const rpmVal = document.createElement('span');
+    rpmVal.id = 'pb-rpm-stock-note';
     rpmVal.textContent = '(point d\'axe map)';
     rpmVal.style.cssText = 'width:120px;text-align:right;color:var(--text-dim);font-size:10px';
     // On expose une API {value: Number} pour que applyBtn continue à marcher
@@ -495,14 +657,19 @@ export class AutoMods {
     qLabel.textContent = 'Qté carburant (brut) :';
     qLabel.style.cssText = 'width:160px;flex-shrink:0';
     const qSlider = document.createElement('input');
+    qSlider.id = 'pb-q-slider';
     qSlider.type = 'range';
     qSlider.min = 0; qSlider.max = 100; qSlider.step = 1; qSlider.value = 10;
     qSlider.style.cssText = 'flex:1';
     const qVal = document.createElement('span');
+    qVal.id = 'pb-q-val';
     qVal.textContent = '10 (≈1 mg/hub)';
     qVal.style.cssText = 'width:120px;text-align:right;color:var(--accent)';
+    const qStockNote = document.createElement('span');
+    qStockNote.id = 'pb-q-stock-note';
+    qStockNote.style.cssText = 'font-size:10px;color:var(--text-dim)';
     qSlider.addEventListener('input', () => { qVal.textContent = `${qSlider.value} (≈${(qSlider.value/10).toFixed(1)} mg/hub)`; });
-    qRow.append(qLabel, qSlider, qVal);
+    qRow.append(qLabel, qSlider, qVal, qStockNote);
 
     // CT note
     const note = document.createElement('div');
@@ -642,11 +809,326 @@ export class AutoMods {
     container.appendChild(wrap);
   }
 
+  // Charge le delta actuel (% vs stock) pour chaque MAP Stage 1 et pré-remplit
+  // les champs numériques du formulaire Stage 1. Appelé à l'ouverture du modal.
+  async _loadStage1Deltas() {
+    try {
+      const res = await fetch(`/api/projects/${this.projectId}/rom/stage1-delta`);
+      if (!res.ok) return;
+      const { maps } = await res.json();
+      for (const m of maps) {
+        const input = this._el?.querySelector(`#s1-pct-${m.name}`);
+        if (input && !m.error) input.value = Math.round(m.avgPct);
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  // Charge les valeurs courantes de la ROM pour les sliders pop & bang.
+  async _loadPopBangCurrent() {
+    const rpmSel = this._el?.querySelector('#pb-rpm-select');
+    const qSlider = this._el?.querySelector('#pb-q-slider');
+    const qVal = this._el?.querySelector('#pb-q-val');
+    if (!rpmSel && !qSlider) return;
+    try {
+      const [rpmRes, qRes] = await Promise.all([
+        fetch(`/api/projects/${this.projectId}/rom/scalar?name=AirCtl_nOvrRun_C`),
+        fetch(`/api/projects/${this.projectId}/rom/scalar?name=AirCtl_qOvrRun_C`),
+      ]);
+      if (rpmRes.ok) {
+        const d = await rpmRes.json();
+        if (d.rawValue !== undefined) {
+          // Sélectionner la valeur la plus proche dans le <select>
+          const opts = Array.from(rpmSel?.options || []);
+          const closest = opts.reduce((a, b) => Math.abs(b.value - d.rawValue) < Math.abs(a.value - d.rawValue) ? b : a, opts[0]);
+          if (closest) closest.selected = true;
+          if (d.stockRaw !== null && d.rawValue !== d.stockRaw) {
+            const note = this._el?.querySelector('#pb-rpm-stock-note');
+            if (note) note.textContent = `(stock: ${d.stockRaw} tr/min)`;
+          }
+        }
+      }
+      if (qRes.ok) {
+        const d = await qRes.json();
+        if (d.rawValue !== undefined && qSlider) {
+          qSlider.value = d.rawValue;
+          if (qVal) qVal.textContent = `${d.rawValue} (≈${(d.rawValue/10).toFixed(1)} mg/hub)`;
+          if (d.stockRaw !== null && d.rawValue !== d.stockRaw) {
+            const note = this._el?.querySelector('#pb-q-stock-note');
+            if (note) note.textContent = `(stock: ${d.stockRaw})`;
+          }
+        }
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  // Slider réglable pour un paramètre scalaire (VALUE) avec indicateur stock.
+  _buildAdjustableActions(container, mod) {
+    const listId = `am-adj-list-${mod.id}`;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:4px';
+
+    // ── Slider + valeur courante ──
+    const sliderRow = document.createElement('div');
+    sliderRow.style.cssText = 'display:flex;align-items:center;gap:10px;font-size:12px';
+
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = mod.min; slider.max = mod.max; slider.step = mod.step;
+    slider.value = mod.stockHint ?? mod.min;
+    slider.style.cssText = 'flex:1';
+    slider.setAttribute('list', listId);
+
+    const tickList = document.createElement('datalist');
+    tickList.id = listId;
+
+    const valueSpan = document.createElement('span');
+    valueSpan.style.cssText = 'min-width:90px;text-align:right;font-family:monospace;color:var(--accent)';
+    valueSpan.textContent = `${slider.value} ${mod.unit}`;
+
+    sliderRow.append(slider, valueSpan);
+
+    // ── Badge delta vs stock ──
+    const badge = document.createElement('span');
+    badge.className = 'am-scalar-badge am-scalar-badge-loading';
+    badge.textContent = 'Chargement…';
+
+    // ── Info stock ──
+    const stockInfo = document.createElement('div');
+    stockInfo.style.cssText = 'font-size:10px;color:var(--text-dim)';
+
+    // ── Boutons ──
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;align-items:center';
+
+    const applyBtn = document.createElement('button');
+    applyBtn.className = 'btn btn-sm btn-primary';
+    applyBtn.textContent = 'Appliquer';
+
+    const restoreBtn = document.createElement('button');
+    restoreBtn.className = 'btn btn-sm';
+    restoreBtn.textContent = '↩ Stock';
+    restoreBtn.disabled = true;
+
+    const resultInfo = document.createElement('div');
+    resultInfo.style.cssText = 'font-size:10px;color:var(--text-dim)';
+
+    btnRow.append(applyBtn, restoreBtn);
+
+    let stockRaw = mod.stockHint ?? null;
+
+    const updateBadge = () => {
+      const val = Number(slider.value);
+      valueSpan.textContent = `${val} ${mod.unit}`;
+      if (stockRaw === null) { badge.textContent = '…'; return; }
+      const diff = val - stockRaw;
+      if (Math.abs(diff) < mod.step * 0.5) {
+        badge.textContent = '= Stock';
+        badge.className = 'am-scalar-badge am-scalar-badge-ok';
+      } else if (diff > 0) {
+        badge.textContent = `+${diff} ${mod.unit} vs stock`;
+        badge.className = 'am-scalar-badge am-scalar-badge-warn';
+      } else {
+        badge.textContent = `${diff} ${mod.unit} vs stock`;
+        badge.className = 'am-scalar-badge am-scalar-badge-info';
+      }
+      restoreBtn.disabled = Math.abs(diff) < mod.step * 0.5;
+    };
+
+    slider.addEventListener('input', updateBadge);
+
+    // Chargement asynchrone des valeurs depuis la ROM.
+    // On utilise physValue/stockPhys (valeur convertie par factor/offset A2L)
+    // pour que le slider affiche des unités lisibles (km/h, rpm, Nm…).
+    fetch(`/api/projects/${this.projectId}/rom/scalar?name=${encodeURIComponent(mod.paramName)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          badge.textContent = 'Non trouvé dans cette ROM';
+          badge.className = 'am-scalar-badge am-scalar-badge-info';
+          stockInfo.textContent = `ℹ ${data.error}`;
+          return;
+        }
+        // physValue : valeur après conversion (ex: km/h, rpm, Nm)
+        const phys = data.physValue ?? data.rawValue;
+        const clamped = Math.max(mod.min, Math.min(mod.max, phys));
+        slider.value = clamped;
+
+        if (data.stockPhys !== null && data.stockPhys !== undefined) {
+          stockRaw = data.stockPhys;  // on stocke la phys pour comparer
+          const clampedStock = Math.max(mod.min, Math.min(mod.max, stockRaw));
+          const opt = document.createElement('option');
+          opt.value = clampedStock;
+          opt.label = `stock (${stockRaw} ${mod.unit})`;
+          tickList.appendChild(opt);
+          stockInfo.textContent = `Stock ROM originale : ${stockRaw} ${mod.unit} — 0x${data.address.toString(16).toUpperCase()} (${data.addressSource})`;
+        } else if (data.stockRaw !== null) {
+          stockRaw = data.stockRaw;
+          stockInfo.textContent = `Adresse 0x${data.address.toString(16).toUpperCase()} (${data.addressSource})`;
+        }
+        updateBadge();
+      })
+      .catch(() => {
+        badge.textContent = 'Erreur lecture ROM';
+        badge.className = 'am-scalar-badge am-scalar-badge-warn';
+      });
+
+    // ── Apply ──
+    // physVal = valeur affichée (en unités lisibles). Le serveur convertit en raw.
+    const doApply = async (physVal) => {
+      applyBtn.disabled = true; restoreBtn.disabled = true;
+      applyBtn.textContent = 'Application…';
+      try {
+        const res = await fetch(`/api/projects/${this.projectId}/rom/scalar`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: mod.paramName, physValue: physVal }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        const romRes = await fetch(`/api/projects/${this.projectId}/rom`);
+        this.romData.set(new Uint8Array(await romRes.arrayBuffer()));
+        if (this.onBytesChange) this.onBytesChange(data.address, []);
+        slider.value = physVal;
+        updateBadge();
+        applyBtn.className = 'btn btn-sm btn-success';
+        applyBtn.textContent = `✓ ${physVal} ${mod.unit}`;
+        resultInfo.textContent = `Écrit : ${data.oldRaw} → ${data.newRaw} (phys: ${data.physValue}) @ 0x${data.address.toString(16).toUpperCase()}`;
+        setTimeout(() => { applyBtn.className = 'btn btn-sm btn-primary'; applyBtn.textContent = 'Appliquer'; applyBtn.disabled = false; }, 2500);
+      } catch (e) {
+        applyBtn.disabled = false; applyBtn.textContent = 'Appliquer';
+        restoreBtn.disabled = stockRaw === null || Number(slider.value) === stockRaw;
+        resultInfo.innerHTML = `<span style="color:var(--danger)">Erreur : ${e.message}</span>`;
+      }
+    };
+
+    applyBtn.addEventListener('click', () => doApply(Number(slider.value)));
+    restoreBtn.addEventListener('click', () => {
+      if (stockRaw === null) return;
+      slider.value = Math.max(mod.min, Math.min(mod.max, stockRaw));
+      updateBadge();
+      doApply(stockRaw);
+    });
+
+    wrap.append(badge, sliderRow, tickList, stockInfo, btnRow, resultInfo);
+    container.appendChild(wrap);
+  }
+
+  // Groupe de DTC : toggle Supprimer / Restaurer sur un lot d'adresses 1-octet.
+  // La détection de l'état courant lit directement romData (sync, pas de round-trip).
+  // Un avertissement firmware s'affiche si les valeurs lues sont hors plage DTC (>30).
+  _buildDTCGroupActions(container, mod) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:4px';
+
+    const badge = document.createElement('span');
+    badge.className = 'am-scalar-badge am-scalar-badge-loading';
+    badge.textContent = 'Lecture…';
+
+    // Avertissement firmware mismatch (affiché si les valeurs semblent aberrantes)
+    const warnEl = document.createElement('div');
+    warnEl.className = 'am-note';
+    warnEl.style.cssText = 'display:none;background:rgba(206,145,120,0.08);border:1px solid rgba(206,145,120,0.3);border-radius:4px;padding:6px 8px;font-size:11px;line-height:1.5;margin-top:2px';
+    warnEl.innerHTML = '⚠ <strong>Firmware différent détecté</strong> — Les valeurs à ces adresses A2L sont hors plage DTC valide (0–30). Le damos.a2l est calibré pour ori.BIN, pas forcément pour votre Berlingo (9663944680.Bin). <strong>Vérifiez avec MPPS en lecture avant de flasher.</strong> Compatibilité DV6 75ch/90ch/110ch non garantie sans A2L spécifique.';
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+
+    const suppressBtn = document.createElement('button');
+    suppressBtn.className = 'btn btn-sm btn-primary';
+    suppressBtn.textContent = 'Supprimer ces DTC';
+
+    const restoreBtn = document.createElement('button');
+    restoreBtn.className = 'btn btn-sm';
+    restoreBtn.textContent = '↩ Restaurer stock';
+    restoreBtn.disabled = true;
+
+    const resultInfo = document.createElement('div');
+    resultInfo.style.cssText = 'font-size:10px;color:var(--text-dim)';
+
+    // Lecture sync de l'état courant via romData
+    const values = mod.addresses.map(addr => addr < this.romData.length ? this.romData[addr] : null);
+    const valid = values.filter(v => v !== null);
+    const suppressed = valid.filter(v => v === 0x00).length;
+    const suspicious = valid.filter(v => v !== null && v > 30 && v < 255).length;
+    const padding = valid.filter(v => v === 255).length;
+    const total = mod.addresses.length;
+
+    const updateBadge = (nSuppressed) => {
+      if (nSuppressed === total) {
+        badge.textContent = `✓ Tous supprimés (${total}/${total})`;
+        badge.className = 'am-scalar-badge am-scalar-badge-ok';
+        restoreBtn.disabled = false;
+      } else if (nSuppressed > 0) {
+        badge.textContent = `Partiellement supprimés (${nSuppressed}/${total})`;
+        badge.className = 'am-scalar-badge am-scalar-badge-info';
+        restoreBtn.disabled = false;
+      } else {
+        badge.textContent = `Non supprimés (0/${total})`;
+        badge.className = 'am-scalar-badge am-scalar-badge-warn';
+        restoreBtn.disabled = true;
+      }
+    };
+    updateBadge(suppressed);
+
+    // Affiche l'avertissement si plus d'un tiers des valeurs sont hors plage
+    if (suspicious > total / 3 || padding > total / 2) {
+      warnEl.style.display = '';
+    }
+
+    const doRequest = async (restore) => {
+      const isRestore = !!restore;
+      const activeBtn = isRestore ? restoreBtn : suppressBtn;
+      const otherBtn = isRestore ? suppressBtn : restoreBtn;
+      activeBtn.disabled = true;
+      activeBtn.textContent = isRestore ? 'Restauration…' : 'Suppression…';
+      resultInfo.innerHTML = '';
+      try {
+        const res = await fetch(`/api/projects/${this.projectId}/dtc-group`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ addresses: mod.addresses, restore: isRestore }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        const romRes = await fetch(`/api/projects/${this.projectId}/rom`);
+        this.romData.set(new Uint8Array(await romRes.arrayBuffer()));
+        if (this.onBytesChange) this.onBytesChange(mod.addresses[0], []);
+
+        const newSuppressed = isRestore ? 0 : data.bytesWritten;
+        updateBadge(isRestore ? 0 : data.bytesWritten);
+        resultInfo.textContent = isRestore
+          ? `${data.changed} valeurs restaurées depuis ROM originale`
+          : `${data.changed} DTC supprimés (0x00 écrit)`;
+
+        if (!isRestore) {
+          suppressBtn.className = 'btn btn-sm btn-success';
+          suppressBtn.textContent = `✓ ${data.changed} DTC supprimés`;
+          setTimeout(() => { suppressBtn.className = 'btn btn-sm btn-primary'; suppressBtn.textContent = 'Supprimer ces DTC'; suppressBtn.disabled = false; }, 2500);
+        } else {
+          restoreBtn.textContent = '↩ Restaurer stock';
+          otherBtn.disabled = false;
+        }
+      } catch (e) {
+        activeBtn.disabled = false;
+        activeBtn.textContent = isRestore ? '↩ Restaurer stock' : 'Supprimer ces DTC';
+        resultInfo.innerHTML = `<span style="color:var(--danger)">Erreur : ${e.message}</span>`;
+      }
+    };
+
+    suppressBtn.addEventListener('click', () => doRequest(false));
+    restoreBtn.addEventListener('click', () => doRequest(true));
+
+    btnRow.append(suppressBtn, restoreBtn);
+    wrap.append(badge, warnEl, btnRow, resultInfo);
+    container.appendChild(wrap);
+  }
+
   _updateStatus(mod) {
     const el = this._el?.querySelector(`#am-status-${mod.id}`);
     if (!el) return;
     const result = this._results.get(mod.id);
-    if (mod.type === 'info' || mod.type === 'stage1' || mod.type === 'popbang' || mod.type === 'recipe') { el.textContent = ''; return; }
+    if (mod.type === 'info' || mod.type === 'stage1' || mod.type === 'popbang' || mod.type === 'recipe' || mod.type === 'adjustable' || mod.type === 'dtc_group') { el.textContent = ''; return; }
     if (!result?.found) { el.innerHTML = '<span style="color:var(--danger)">Non trouvé</span>'; return; }
     el.innerHTML = result.applied
       ? '<span style="color:var(--accent2)">✓ Actif</span>'

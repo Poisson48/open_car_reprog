@@ -266,6 +266,13 @@ input.input-error { border-color: var(--danger) !important; background: rgba(244
 .am-template { border-left: 3px solid var(--accent); }
 .am-tag { display: inline-block; font-size: 10px; padding: 1px 6px; margin-left: 4px; background: var(--bg2); color: var(--text-dim); border-radius: 8px; }
 
+/* Sliders scalaires réglables (auto-mods adjustable) */
+.am-scalar-badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-bottom: 4px; }
+.am-scalar-badge-loading { background: rgba(128,128,128,0.15); color: var(--text-dim); }
+.am-scalar-badge-ok   { background: rgba(78, 201, 176, 0.18); color: var(--accent2); border: 1px solid rgba(78,201,176,0.3); }
+.am-scalar-badge-warn { background: rgba(206, 145, 120, 0.18); color: var(--warn); border: 1px solid rgba(206,145,120,0.3); }
+.am-scalar-badge-info { background: rgba(86, 156, 214, 0.18); color: var(--accent); border: 1px solid rgba(86,156,214,0.3); }
+
 /* Map-Finder modal */
 .mf-row { position: relative; border-bottom: 1px solid var(--border); background: var(--panel); }
 .mf-row:hover { background: var(--bg2); }
