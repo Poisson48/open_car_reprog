@@ -53,7 +53,7 @@ ressources/
   edc16c34/damos.a2l        Fichier A2L Bosch EDC16C34 (440k lignes)
   edc16c34/damos.cache.json Cache JSON parsé (3.1 MB, gitignored, généré au 1er accès — SUPPRIMER pour forcer le re-parse)
   edc16c34/ori.BIN          ROM de référence — dump FULL (code PowerPC MPC555 à 0x10000-0x0D0000 + calibration 0x1C0000+). Matche damos.a2l à 100 %. Probablement un BDM dump.
-  edc16c34/9663944680.Bin   Stock Bosch PSA pour Peugeot 308 I / Berlingo 1.6 HDi 110 (SW 1037383736, HW 0281012620). Dump calibration-only (reste en FF FF) typique MPPS OBD. Firmware DIFFÉRENT de damos.a2l (zone cal identique à 23 % seulement), les maps existent mais à d'autres adresses (ex: AccPed_trqEngHiGear_MAP à 0x1C162C au lieu de 0x1C1448, axes identiques).
+  edc16c34/9663944680.Bin   Stock Bosch PSA pour Citroën Berlingo I / Peugeot Partner — 1.6 HDi 55kW **75HP** DV6BTED4 (code moteur 9HW), SW 1037383736, HW 0281012620. ⚠ Anciennement étiqueté "110ch" — ERREUR confirmée par ecufile.net / ecubackup.com / cartelematics.fr. Le 110ch Berlingo II a pour ref 9664843780 / SW 1039398234. Dump calibration-only OBD (MPPS) — la table DTC DSM_ClaDfp est absente de la zone OBD accessible. Stage 1 maps relocalisées correctement via open_damos (ex: AccPed_trqEngHiGear_MAP → 0x1C162C). Adresses scalaires relocalisées : AirCtl_nMin_C @ 0x1C45E0 (valeur: 6263 rpm — EGR quasi-coupée), VSSCD_vMax_C @ 0x1F277A (220 km/h), AirCtl_nOvrRun_C @ 0x1C446E, AirCtl_qOvrRun_C @ 0x1C44DC.
   edc16c34/1.7bar boost…    Tune complet (code + calibration + signatures MAC/RSA regénérées par le flasher)
 tests/
   *.test.js                 Tests Playwright end-to-end, lancés via `node tests/<x>.test.js`
